@@ -1,8 +1,8 @@
-# SFTPServer
+# Just SFTP
 
-This library (and simple host) implement an SFTP server that implements the [V3 version of the SFTP protocol](https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-02) and is available as [NuGet package](https://www.nuget.org/packages/SFTPServer/).
+This library implements the [V3 version of the SFTP protocol](https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-02), and just it - you are free to use any transport/encryption layer (e.g. using a library like [Microsoft's DevTunnels SSH](https://github.com/microsoft/dev-tunnels-ssh)).
 
-This library is intended to be hosted in an SSH deamon; this can be done by editting the `sshd_config` file (usually in `/etc/ssh/` or, for Windows, in `%PROGRAMDATA%\ssh`) and pointing it to your own host executable.
+The included [host](./SFTPHost/) is intended to be hosted in an SSH deamon; this can be done by editting the `sshd_config` file (usually in `/etc/ssh/` or, for Windows, in `%PROGRAMDATA%\ssh`) and pointing it to your own host executable.
 
 In `sshd_config` you'll find the `Subsystem` entry which can be pointed to any executable:
 ```
@@ -32,7 +32,7 @@ Implementing an `ISFTPHandler` should be pretty straightforward, simply implemen
 
 ## License
 
-Licensed under MIT license. See [LICENSE](https://github.com/KeenSystemsNL/SFTPServer/raw/master/LICENSE) for details.
+Licensed under MIT license. See [LICENSE](./LICENSE) for details.
 
 ### Attributions
 
