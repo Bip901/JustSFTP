@@ -1,7 +1,7 @@
 ﻿using System;
-using SFTP.Enums;
+using JustSFTP.Server.Enums;
 
-namespace SFTP.Models;
+namespace JustSFTP.Server.Models;
 
 public record SFTPData(byte[] Data)
 {

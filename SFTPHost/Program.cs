@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NLog.Extensions.Logging;
-using SFTP;
+using JustSFTP.Server;
 using System.Reflection;
 
 namespace SFTPHost;

@@ -1,6 +1,6 @@
-﻿using SFTP.Models;
+﻿using JustSFTP.Server.Models;
 
-namespace SFTP.Exceptions;
+namespace JustSFTP.Server.Exceptions;
 
 public class HandleNotFoundException : NotFoundException
 {

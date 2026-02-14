@@ -1,3 +1,3 @@
-﻿namespace SFTP.Models;
+﻿namespace JustSFTP.Server.Models;
 
 public record SFTPPath(string Path);

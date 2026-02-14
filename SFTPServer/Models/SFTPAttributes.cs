@@ -1,10 +1,10 @@
-﻿using SFTP.Enums;
+﻿using JustSFTP.Server.Enums;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 
-namespace SFTP.Models;
+namespace JustSFTP.Server.Models;
 
 public record SFTPAttributes(
     ulong FileSize,

@@ -2,9 +2,9 @@
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using SFTP.Models;
+using JustSFTP.Server.Models;
 
-namespace SFTP;
+namespace JustSFTP.Server;
 
 public interface ISFTPHandler
 {

@@ -1,6 +1,6 @@
-﻿using SFTP.Enums;
+﻿using JustSFTP.Server.Enums;
 
-namespace SFTP.Exceptions;
+namespace JustSFTP.Server.Exceptions;
 
 public class PermissionException : HandlerException
 {

@@ -1,6 +1,6 @@
 ﻿using System.IO;
 
-namespace SFTP.Models;
+namespace JustSFTP.Server.Models;
 
 public record SFTPName(string Name, SFTPAttributes Attributes)
 {

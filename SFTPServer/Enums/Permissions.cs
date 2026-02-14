@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SFTP.Enums;
+namespace JustSFTP.Server.Enums;
 
 [Flags]
 public enum Permissions : uint

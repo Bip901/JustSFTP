@@ -1,4 +1,4 @@
-﻿namespace SFTP.Models;
+﻿namespace JustSFTP.Server.Models;
 
 public record SFTPGroup(uint Id, string Name) : SFTPIdentifier(Id, Name)
 {

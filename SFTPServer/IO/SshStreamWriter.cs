@@ -1,5 +1,5 @@
-﻿using SFTP.Enums;
-using SFTP.Models;
+﻿using JustSFTP.Server.Enums;
+using JustSFTP.Server.Models;
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SFTP.IO;
+namespace JustSFTP.Server.IO;
 
 internal class SshStreamWriter : IDisposable
 {

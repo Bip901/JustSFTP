@@ -1,5 +1,5 @@
-﻿using SFTP.Exceptions;
-using SFTP.Models;
+﻿using JustSFTP.Server.Exceptions;
+using JustSFTP.Server.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -8,7 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SFTP;
+namespace JustSFTP.Server;
 
 public class DefaultSFTPHandler : ISFTPHandler
 {

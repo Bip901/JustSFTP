@@ -1,7 +1,7 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
 
-namespace SFTP;
+namespace JustSFTP.Server;
 
 public interface ISFTPServer
 {

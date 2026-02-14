@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
-namespace SFTP.Models;
+namespace JustSFTP.Server.Models;
 
 public class SFTPExtensions : ReadOnlyDictionary<string, string>
 {
