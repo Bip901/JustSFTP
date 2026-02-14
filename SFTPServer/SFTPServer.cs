@@ -3,7 +3,13 @@ using SFTP.Enums;
 using SFTP.Exceptions;
 using SFTP.IO;
 using SFTP.Models;
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SFTP;
 

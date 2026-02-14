@@ -1,4 +1,6 @@
-﻿namespace SFTP.Enums;
+﻿using System;
+
+namespace SFTP.Enums;
 
 [Flags]
 internal enum PFlags : uint

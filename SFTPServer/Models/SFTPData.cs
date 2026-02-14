@@ -1,4 +1,5 @@
-﻿using SFTP.Enums;
+﻿using System;
+using SFTP.Enums;
 
 namespace SFTP.Models;
 

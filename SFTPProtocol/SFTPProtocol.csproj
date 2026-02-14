@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.1;net8.0</TargetFrameworks>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Version>0.1.0</Version>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>JustSFTP.Protocol</PackageId>
+    <Authors>RobIII, Bip901</Authors>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Title>JustSFTP.Protocol</Title>
+    <Description>SFTP V3 Protocol Implementation</Description>
+    <Copyright>(c) 2022 KeenSystems, 2026 Bip901</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Bip901/JustSFTP</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Bip901/JustSFTP</PackageProjectUrl>
+    <PackageTags>sftp;sftp-server;sftpserver;ssh;sftp-client;sftpclient</PackageTags>
+    <DocumentationFile>
+      $(MSBuildProjectDirectory)/bin/$(Configuration)/$(TargetFramework)/JustSFTP.xml</DocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+</Project>

@@ -1,4 +1,6 @@
-﻿namespace SFTP.Models;
+﻿using System.IO;
+
+namespace SFTP.Models;
 
 public record SFTPName(string Name, SFTPAttributes Attributes)
 {

@@ -1,4 +1,6 @@
-﻿namespace SFTP.Enums;
+﻿using System;
+
+namespace SFTP.Enums;
 
 [Flags]
 public enum Permissions : uint

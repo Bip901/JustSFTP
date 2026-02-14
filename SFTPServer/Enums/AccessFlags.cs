@@ -1,4 +1,7 @@
-﻿namespace SFTP.Enums;
+﻿using System;
+using System.IO;
+
+namespace SFTP.Enums;
 
 [Flags]
 internal enum AccessFlags : uint
