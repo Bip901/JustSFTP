@@ -15,6 +15,8 @@ namespace JustSFTP.Server;
 
 public sealed class SFTPServer : ISFTPServer, IDisposable
 {
+    private const uint SERVER_SFTP_PROTOCOL_VERSION = 3;
+
     private readonly SFTPServerOptions _options;
     private readonly SshStreamReader _reader;
     private readonly SshStreamWriter _writer;
@@ -123,7 +125,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     {
         // Get client version
         var clientversion = await _reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
-        _protocolversion = Math.Min(clientversion, 3);
+        _protocolversion = Math.Min(clientversion, SERVER_SFTP_PROTOCOL_VERSION);
 
         // Get client extensions (if any)
         var clientExtensions = new Dictionary<string, string>();
