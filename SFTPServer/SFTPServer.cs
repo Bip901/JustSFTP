@@ -126,15 +126,16 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         _protocolversion = Math.Min(clientversion, 3);
 
         // Get client extensions (if any)
-        var clientextensions = new Dictionary<string, string>();
+        var clientExtensions = new Dictionary<string, string>();
         while (extensiondatalength > 0)
         {
-            var name = await _reader.ReadString(cancellationToken).ConfigureAwait(false);
-            var data = await _reader.ReadString(cancellationToken).ConfigureAwait(false);
-            extensiondatalength -= (uint)(name.Length + data.Length);
+            byte[] nameBytes = await _reader.ReadBinary(cancellationToken).ConfigureAwait(false);
+            byte[] dataBytes = await _reader.ReadBinary(cancellationToken).ConfigureAwait(false);
+            clientExtensions[_reader.StringEncoding.GetString(nameBytes)] = _reader.StringEncoding.GetString(dataBytes);
+            extensiondatalength -= (uint)(nameBytes.Length + dataBytes.Length);
         }
 
-        var serverextensions = await _sftphandler.Init(clientversion, Environment.UserName, new SFTPExtensions(clientextensions), cancellationToken).ConfigureAwait(false);
+        var serverextensions = await _sftphandler.Init(clientversion, Environment.UserName, new SFTPExtensions(clientExtensions), cancellationToken).ConfigureAwait(false);
 
         // Send version response
         await _writer.Write(RequestType.Version, cancellationToken).ConfigureAwait(false);
