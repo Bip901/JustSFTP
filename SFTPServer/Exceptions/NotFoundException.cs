@@ -1,4 +1,4 @@
-﻿using JustSFTP.Server.Enums;
+﻿using JustSFTP.Protocol.Enums;
 
 namespace JustSFTP.Server.Exceptions;
 

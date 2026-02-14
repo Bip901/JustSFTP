@@ -1,9 +1,9 @@
 ﻿using System;
 
-namespace JustSFTP.Server.Enums;
+namespace JustSFTP.Protocol.Enums;
 
 [Flags]
-internal enum PFlags : uint
+public enum PFlags : uint
 {
     Size = 0x00000001,
     UidGid = 0x00000002,
@@ -11,8 +11,5 @@ internal enum PFlags : uint
     AccessModifiedTime = 0x00000008,
     Extended = 0x80000000,
 
-    DEFAULT = Size
-           | UidGid
-           | Permissions
-           | AccessModifiedTime
+    DEFAULT = Size | UidGid | Permissions | AccessModifiedTime,
 }

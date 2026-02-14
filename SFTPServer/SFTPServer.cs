@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Options;
-using JustSFTP.Server.Enums;
+using JustSFTP.Protocol.Enums;
 using JustSFTP.Server.Exceptions;
-using JustSFTP.Server.IO;
-using JustSFTP.Server.Models;
+using JustSFTP.Protocol.IO;
+using JustSFTP.Protocol.Models;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;

@@ -1,5 +1,5 @@
-﻿using JustSFTP.Server.Enums;
-using JustSFTP.Server.Models;
+﻿using JustSFTP.Protocol.Enums;
+using JustSFTP.Protocol.Models;
 using System;
 using System.Buffers.Binary;
 using System.IO;
@@ -7,9 +7,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace JustSFTP.Server.IO;
+namespace JustSFTP.Protocol.IO;
 
-internal class SshStreamReader
+public class SshStreamReader
 {
     private readonly Stream _stream;
     private static readonly Encoding _encoding = new UTF8Encoding(false);

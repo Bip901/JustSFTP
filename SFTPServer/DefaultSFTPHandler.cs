@@ -1,5 +1,5 @@
 ﻿using JustSFTP.Server.Exceptions;
-using JustSFTP.Server.Models;
+using JustSFTP.Protocol.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;

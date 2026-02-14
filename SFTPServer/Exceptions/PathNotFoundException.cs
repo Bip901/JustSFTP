@@ -1,4 +1,4 @@
-﻿using JustSFTP.Server.Models;
+﻿using JustSFTP.Protocol.Models;
 
 namespace JustSFTP.Server.Exceptions;
 

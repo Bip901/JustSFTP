@@ -1,6 +1,6 @@
-﻿namespace JustSFTP.Server.Enums;
+﻿namespace JustSFTP.Protocol.Enums;
 
-internal enum ResponseType : byte
+public enum ResponseType : byte
 {
     Status = 0x65,
     Handle = 0x66,
@@ -8,5 +8,5 @@ internal enum ResponseType : byte
     Name = 0x68,
     Attributes = 0x69,
 
-    Extended = 0xC9
+    Extended = 0xC9,
 }

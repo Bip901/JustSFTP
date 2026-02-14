@@ -1,4 +1,4 @@
-﻿namespace JustSFTP.Server.Enums;
+﻿namespace JustSFTP.Protocol.Enums;
 
 public enum Status : uint
 {

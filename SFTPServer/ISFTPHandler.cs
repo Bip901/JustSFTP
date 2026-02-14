@@ -2,7 +2,7 @@
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using JustSFTP.Server.Models;
+using JustSFTP.Protocol.Models;
 
 namespace JustSFTP.Server;
 

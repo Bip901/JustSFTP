@@ -1,6 +1,6 @@
-﻿namespace JustSFTP.Server.Enums;
+﻿namespace JustSFTP.Protocol.Enums;
 
-internal enum RequestType : byte
+public enum RequestType : byte
 {
     Init = 0x01,
     Version = 0x02,
@@ -23,5 +23,5 @@ internal enum RequestType : byte
     ReadLink = 0x13,
     SymLink = 0x14,
 
-    Extended = 0xC8
+    Extended = 0xC8,
 }

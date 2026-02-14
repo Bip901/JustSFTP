@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace JustSFTP.Server.Enums;
+namespace JustSFTP.Protocol.Enums;
 
 [Flags]
 public enum Permissions : uint
@@ -18,14 +18,25 @@ public enum Permissions : uint
     Sticky = 0x200,
     SetGID = 0x400,
     SetUID = 0x800,
+
     //FIFO = 0x1000,
     //CharacterDevice = 0x2000,
     Directory = 0x4000,
+
     //Block_Device = 0x6000,
     RegularFile = 0x8000,
+
     //SymbolicLink = 0xA000,
     //Socket = 0x000,
 
     DefaultFile = UserRead | UserWrite | GroupRead | OtherRead | RegularFile,
-    DefaultDirectory = UserRead | UserWrite | UserExecute | GroupRead | GroupExecute | OtherRead | OtherExecute | Directory
+    DefaultDirectory =
+        UserRead
+        | UserWrite
+        | UserExecute
+        | GroupRead
+        | GroupExecute
+        | OtherRead
+        | OtherExecute
+        | Directory,
 }

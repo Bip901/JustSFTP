@@ -1,10 +1,10 @@
 ﻿using System;
 using System.IO;
 
-namespace JustSFTP.Server.Enums;
+namespace JustSFTP.Protocol.Enums;
 
 [Flags]
-internal enum AccessFlags : uint
+public enum AccessFlags : uint
 {
     Read = 0x01,
     Write = 0x02,
@@ -12,10 +12,10 @@ internal enum AccessFlags : uint
     Create = 0x08,
     Truncate = 0x10,
     Exclusive = 0x20,
-    Text = 0x40
+    Text = 0x40,
 }
 
-internal static class AccessFlagsExtensionMethods
+public static class AccessFlagsExtensionMethods
 {
     public static FileMode ToFileMode(this AccessFlags flags)
     {

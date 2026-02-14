@@ -1,5 +1,5 @@
-﻿using JustSFTP.Server.Enums;
-using JustSFTP.Server.Models;
+﻿using JustSFTP.Protocol.Enums;
+using JustSFTP.Protocol.Models;
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
@@ -8,9 +8,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace JustSFTP.Server.IO;
+namespace JustSFTP.Protocol.IO;
 
-internal class SshStreamWriter : IDisposable
+public class SshStreamWriter : IDisposable
 {
     private readonly Stream _stream;
     private readonly MemoryStream _memorystream;

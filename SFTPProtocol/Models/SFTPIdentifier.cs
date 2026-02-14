@@ -1,4 +1,4 @@
-﻿namespace JustSFTP.Server.Models;
+﻿namespace JustSFTP.Protocol.Models;
 
 public abstract record SFTPIdentifier(uint Id, string Name)
 {
