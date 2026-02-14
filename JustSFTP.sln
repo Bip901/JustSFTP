@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JustSFTP.Protocol", "SFTPPr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JustSFTP.Client", "SFTPClient\JustSFTP.Client.csproj", "{EDF3C89C-B379-48D6-AD14-66AE6A176834}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JustSFTP.Tests", "JustSFTP.Tests\JustSFTP.Tests.csproj", "{4012E48F-8E85-4318-B2FF-D9CFBD7577D0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -75,6 +77,18 @@ Global
 		{EDF3C89C-B379-48D6-AD14-66AE6A176834}.Release|x64.Build.0 = Release|Any CPU
 		{EDF3C89C-B379-48D6-AD14-66AE6A176834}.Release|x86.ActiveCfg = Release|Any CPU
 		{EDF3C89C-B379-48D6-AD14-66AE6A176834}.Release|x86.Build.0 = Release|Any CPU
+		{4012E48F-8E85-4318-B2FF-D9CFBD7577D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4012E48F-8E85-4318-B2FF-D9CFBD7577D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4012E48F-8E85-4318-B2FF-D9CFBD7577D0}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4012E48F-8E85-4318-B2FF-D9CFBD7577D0}.Debug|x64.Build.0 = Debug|Any CPU
+		{4012E48F-8E85-4318-B2FF-D9CFBD7577D0}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4012E48F-8E85-4318-B2FF-D9CFBD7577D0}.Debug|x86.Build.0 = Debug|Any CPU
+		{4012E48F-8E85-4318-B2FF-D9CFBD7577D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4012E48F-8E85-4318-B2FF-D9CFBD7577D0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4012E48F-8E85-4318-B2FF-D9CFBD7577D0}.Release|x64.ActiveCfg = Release|Any CPU
+		{4012E48F-8E85-4318-B2FF-D9CFBD7577D0}.Release|x64.Build.0 = Release|Any CPU
+		{4012E48F-8E85-4318-B2FF-D9CFBD7577D0}.Release|x86.ActiveCfg = Release|Any CPU
+		{4012E48F-8E85-4318-B2FF-D9CFBD7577D0}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
