@@ -23,7 +23,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\SFTPServer\SFTPServer.csproj" />
+	  <ProjectReference Include="..\SFTPServer\JustSFTP.Server.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

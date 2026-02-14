@@ -9,20 +9,20 @@
 	</PropertyGroup>
 
 	<PropertyGroup>
-		<PackageId>JustSFTP.Server</PackageId>
+		<PackageId>JustSFTP.Client</PackageId>
 		<Authors>RobIII, Bip901</Authors>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-		<Title>JustSFTP.Server</Title>
-		<Description>SFTP V3 Server Implementation</Description>
+		<Title>JustSFTP.Client</Title>
+		<Description>SFTP V3 Client Implementation</Description>
 		<Copyright>(c) 2022 KeenSystems, 2026 Bip901</Copyright>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<RepositoryUrl>https://github.com/Bip901/JustSFTP</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageProjectUrl>https://github.com/Bip901/JustSFTP</PackageProjectUrl>
-		<PackageTags>sftp;sftp-server;sftpserver;ssh</PackageTags>
+		<PackageTags>sftp;sftp-client;sftpclient;ssh</PackageTags>
 		<DocumentationFile>
-			$(MSBuildProjectDirectory)/bin/$(Configuration)/$(TargetFramework)/JustSFTP.xml</DocumentationFile>
+			$(MSBuildProjectDirectory)/bin/$(Configuration)/$(TargetFramework)/JustSFTP.Client.xml</DocumentationFile>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -34,7 +34,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Extensions.Options" Version="7.0.0" />
-		<ProjectReference Include="..\SFTPProtocol\SFTPProtocol.csproj" />
+		<ProjectReference Include="..\SFTPProtocol\JustSFTP.Protocol.csproj" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)'=='netstandard2.1'">

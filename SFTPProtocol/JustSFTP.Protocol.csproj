@@ -23,7 +23,7 @@
     <PackageProjectUrl>https://github.com/Bip901/JustSFTP</PackageProjectUrl>
     <PackageTags>sftp;sftp-server;sftpserver;ssh;sftp-client;sftpclient</PackageTags>
     <DocumentationFile>
-      $(MSBuildProjectDirectory)/bin/$(Configuration)/$(TargetFramework)/JustSFTP.xml</DocumentationFile>
+      $(MSBuildProjectDirectory)/bin/$(Configuration)/$(TargetFramework)/JustSFTP.Protocol.xml</DocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
