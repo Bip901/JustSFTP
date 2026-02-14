@@ -1,12 +1,13 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.Reflection;
+using JustSFTP.Protocol.Models;
+using JustSFTP.Server;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NLog.Extensions.Logging;
-using JustSFTP.Server;
-using System.Reflection;
 
-namespace SFTPHost;
+namespace JustSFTP.Host;
 
 public class Program
 {
@@ -21,7 +22,9 @@ public class Program
 
         var serviceCollection = new ServiceCollection();
         serviceCollection.AddLogging(c => c.ClearProviders().AddNLog());
-        serviceCollection.Configure<SFTPServerOptions>(options => configuration.GetSection("Server").Bind(options));
+        serviceCollection.Configure<SFTPServerOptions>(options =>
+            configuration.GetSection("Server").Bind(options)
+        );
         var serviceprovider = serviceCollection.BuildServiceProvider();
 
         _logger = serviceprovider.GetRequiredService<ILogger<Program>>();
@@ -37,10 +40,12 @@ public class Program
         _logger.LogInformation("Starting server...");
         using var stdin = Console.OpenStandardInput();
         using var stdout = Console.OpenStandardOutput();
+        var sftpServerOptions = options.Value;
         using var server = new SFTPServer(
-            options,
             stdin,
-            stdout
+            stdout,
+            new SFTPPath(sftpServerOptions.Root),
+            sftpServerOptions.MaxMessageSize
         );
 
         using var cts = new CancellationTokenSource();

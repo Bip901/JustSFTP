@@ -1,4 +1,4 @@
-﻿namespace JustSFTP.Server;
+namespace JustSFTP.Host;
 
 public record SFTPServerOptions()
 {

@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Options;
-using JustSFTP.Protocol.Enums;
+﻿using JustSFTP.Protocol.Enums;
 using JustSFTP.Server.Exceptions;
 using JustSFTP.Protocol.IO;
 using JustSFTP.Protocol.Models;
@@ -17,7 +16,6 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
 {
     private const uint SERVER_SFTP_PROTOCOL_VERSION = 3;
 
-    private readonly SFTPServerOptions _options;
     private readonly SshStreamReader _reader;
     private readonly SshStreamWriter _writer;
     private readonly ISFTPHandler _sftphandler;
@@ -26,23 +24,29 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     private readonly Dictionary<RequestType, Func<uint, CancellationToken, Task>> _messagehandlers;
     private readonly ConcurrentDictionary<SFTPHandle, PagedResult<SFTPName>> _directorypages = new();
 
-    public SFTPServer(IOptions<SFTPServerOptions> options, Stream inStream, Stream outStream)
+    /// <summary>
+    /// Creates a new <see cref="SFTPServer"/> over the given streams, serving files from the given path.
+    /// The server is not responsible for closing the streams.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"></exception>
+    public SFTPServer(Stream inStream, Stream outStream, SFTPPath root, int writeBufferSize = 1048576) // 1 MiB
         : this(
-              options,
               inStream,
               outStream,
-              new DefaultSFTPHandler(
-                  new SFTPPath(options.Value.Root)
-                )
+              new DefaultSFTPHandler(root),
+              writeBufferSize
             )
     { }
 
-    public SFTPServer(IOptions<SFTPServerOptions> options, Stream inStream, Stream outStream, ISFTPHandler sftpHandler)
+    /// <summary>
+    /// Creates a new <see cref="SFTPServer"/> over the given streams, serving files using the given <see cref="ISFTPHandler"/>.
+    /// The server is not responsible for closing the streams.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"></exception>
+    public SFTPServer(Stream inStream, Stream outStream, ISFTPHandler sftpHandler, int writeBufferSize = 1048576) // 1 MiB
     {
-        _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
-
         _reader = new SshStreamReader(inStream ?? throw new ArgumentNullException(nameof(inStream)));
-        _writer = new SshStreamWriter(outStream ?? throw new ArgumentNullException(nameof(outStream)), _options.MaxMessageSize);
+        _writer = new SshStreamWriter(outStream ?? throw new ArgumentNullException(nameof(outStream)), writeBufferSize);
         _sftphandler = sftpHandler ?? throw new ArgumentNullException(nameof(sftpHandler));
 
         _messagehandlers = new()
