@@ -360,14 +360,20 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
 
     private async Task SendStatus(uint requestId, Status status, string errorMessage, string languageTag, CancellationToken cancellationToken = default)
     {
-        await _writer.Write(ResponseType.Status, cancellationToken).ConfigureAwait(false);
-        await _writer.Write(requestId, cancellationToken).ConfigureAwait(false);
-        await _writer.Write(status, cancellationToken).ConfigureAwait(false);
-        if (_protocolversion > 2)
+        SFTPStatus sftpStatus;
+        if (_protocolversion >= 3)
         {
-            await _writer.Write(errorMessage, cancellationToken).ConfigureAwait(false);
-            await _writer.Write(languageTag, cancellationToken).ConfigureAwait(false);
+            sftpStatus = new(requestId, status)
+            {
+                ErrorMessage = errorMessage,
+                LanguageTag = languageTag
+            };
         }
+        else
+        {
+            sftpStatus = new(requestId, status);
+        }
+        await sftpStatus.WriteAsync(_writer, cancellationToken).ConfigureAwait(false);
     }
 
     private static string GetStatusString(Status status)
