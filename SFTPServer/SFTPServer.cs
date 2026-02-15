@@ -159,7 +159,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         var flags = await _reader.ReadAccessFlags(cancellationToken).ConfigureAwait(false);
         var attrs = await _reader.ReadAttributes(cancellationToken).ConfigureAwait(false);
         var result = await _sftphandler.Open(new SFTPPath(path), flags.ToFileMode(), flags.ToFileAccess(), attrs, cancellationToken).ConfigureAwait(false);
-        await SendHandle(requestId, result.Handle, cancellationToken).ConfigureAwait(false);
+        await new SFTPHandleResponse(requestId, result.Handle).WriteAsync(_writer, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task CloseHandler(uint requestId, CancellationToken cancellationToken = default)
@@ -175,19 +175,8 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         var handle = new SFTPHandle(await _reader.ReadString(cancellationToken).ConfigureAwait(false));
         var offset = await _reader.ReadUInt64(cancellationToken).ConfigureAwait(false);
         var len = await _reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
-        var result = await _sftphandler.Read(handle, offset, len, cancellationToken).ConfigureAwait(false);
-
-        if (result.Status == Status.Ok)
-        {
-            await _writer.Write(ResponseType.Data, cancellationToken).ConfigureAwait(false);
-            await _writer.Write(requestId, cancellationToken).ConfigureAwait(false);
-            await _writer.Write(result.Data.Length, cancellationToken).ConfigureAwait(false);
-            await _writer.Write(result.Data, cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            await SendStatus(requestId, result.Status, cancellationToken).ConfigureAwait(false);
-        }
+        byte[] result = await _sftphandler.Read(handle, offset, len, cancellationToken).ConfigureAwait(false);
+        await new SFTPData(requestId, result).WriteAsync(_writer, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task WriteHandler(uint requestId, CancellationToken cancellationToken = default)
@@ -231,9 +220,9 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
 
     private async Task OpenDirHandler(uint requestId, CancellationToken cancellationToken = default)
     {
-        var path = new SFTPPath(await _reader.ReadString(cancellationToken).ConfigureAwait(false));
-        var result = await _sftphandler.OpenDir(path, cancellationToken).ConfigureAwait(false);
-        await SendHandle(requestId, result.Handle, cancellationToken).ConfigureAwait(false);
+        SFTPPath path = new(await _reader.ReadString(cancellationToken).ConfigureAwait(false));
+        SFTPHandle result = await _sftphandler.OpenDir(path, cancellationToken).ConfigureAwait(false);
+        await new SFTPHandleResponse(requestId, result.Handle).WriteAsync(_writer, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task ReadDirHandler(uint requestId, CancellationToken cancellationToken = default)
@@ -241,14 +230,12 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         var handle = new SFTPHandle(await _reader.ReadString(cancellationToken).ConfigureAwait(false));
 
         // Retrieve results (if not already done for this handle) and put into PagedResults
-        var pagedresults = _directorypages.GetOrAdd(handle, new PagedResult<SFTPName>(await _sftphandler.ReadDir(handle, cancellationToken).ConfigureAwait(false)));
+        PagedResult<SFTPName> pagedResults = _directorypages.GetOrAdd(handle, new PagedResult<SFTPName>(await _sftphandler.ReadDir(handle, cancellationToken).ConfigureAwait(false)));
         // Get next page
-        var page = pagedresults.NextPage();
+        IEnumerable<SFTPName> page = pagedResults.NextPage();
         if (page.Any())
         {
-            await _writer.Write(ResponseType.Name, cancellationToken).ConfigureAwait(false);
-            await _writer.Write(requestId, cancellationToken).ConfigureAwait(false);
-            await _writer.Write(page.ToArray(), cancellationToken).ConfigureAwait(false);
+            await new SFTPNameResponse(requestId, [.. page]).WriteAsync(_writer, cancellationToken).ConfigureAwait(false);
         }
         else
         {
@@ -287,9 +274,8 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
 
         var result = await _sftphandler.RealPath(new SFTPPath(path), cancellationToken).ConfigureAwait(false);
 
-        await _writer.Write(ResponseType.Name, cancellationToken).ConfigureAwait(false);
-        await _writer.Write(requestId, cancellationToken).ConfigureAwait(false);
-        await _writer.Write(new[] { SFTPName.FromString(result.Path) }, cancellationToken).ConfigureAwait(false);
+        await new SFTPNameResponse(requestId, [SFTPName.FromString(result.Path)])
+            .WriteAsync(_writer, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task StatHandler(uint requestId, CancellationToken cancellationToken = default)
@@ -313,9 +299,8 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         var path = new SFTPPath(await _reader.ReadString(cancellationToken).ConfigureAwait(false));
         var result = await _sftphandler.ReadLink(path, cancellationToken).ConfigureAwait(false);
 
-        await _writer.Write(ResponseType.Name, cancellationToken).ConfigureAwait(false);
-        await _writer.Write(requestId, cancellationToken).ConfigureAwait(false);
-        await _writer.Write(new[] { result }, cancellationToken).ConfigureAwait(false);
+        await new SFTPNameResponse(requestId, [result])
+            .WriteAsync(_writer, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task SymLinkHandler(uint requestId, CancellationToken cancellationToken = default)
@@ -339,13 +324,6 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         await _writer.Write(requestId, cancellationToken).ConfigureAwait(false);
         // Now the handler will have access to both our in- and out-streams
         await _sftphandler.Extended(name, _reader.Stream, _writer.Stream).ConfigureAwait(false);
-    }
-
-    private async Task SendHandle(uint requestId, string handle, CancellationToken cancellationToken = default)
-    {
-        await _writer.Write(ResponseType.Handle, cancellationToken).ConfigureAwait(false);
-        await _writer.Write(requestId, cancellationToken).ConfigureAwait(false);
-        await _writer.Write(handle, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task SendStat(uint requestId, SFTPAttributes attributes, CancellationToken cancellationToken = default)
@@ -390,6 +368,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
             Status.OperationUnsupported => "Operation unsupported",
             _ => "Unknown error"
         };
+    
     public void Dispose() => ((IDisposable)_writer).Dispose();
 
     private class PagedResult<T>

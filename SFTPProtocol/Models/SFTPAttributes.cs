@@ -1,11 +1,14 @@
-﻿using JustSFTP.Protocol.Enums;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using JustSFTP.Protocol.Enums;
 
 namespace JustSFTP.Protocol.Models;
 
+/// <summary>
+/// The ATTRS component of SSH_FXP_SETSTAT and SSH_FXP_ATTRS
+/// </summary>
 public record SFTPAttributes(
     ulong FileSize,
     SFTPUser User,
@@ -16,16 +19,29 @@ public record SFTPAttributes(
 )
 {
     public static readonly SFTPAttributes DummyFile = new(
-        0, SFTPUser.Root, SFTPGroup.Root, Permissions.DefaultFile, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch
+        0,
+        SFTPUser.Root,
+        SFTPGroup.Root,
+        Permissions.DefaultFile,
+        DateTimeOffset.UnixEpoch,
+        DateTimeOffset.UnixEpoch
     );
-    public static readonly SFTPAttributes DummyDirectory = DummyFile with { Permissions = Permissions.DefaultDirectory };
+    public static readonly SFTPAttributes DummyDirectory = DummyFile with
+    {
+        Permissions = Permissions.DefaultDirectory,
+    };
 
-    public IDictionary<string, string> ExtendeAttributes { get; } = new Dictionary<string, string>();
-    public string GetLongFileName(string name)
-        => ((FormattableString)$"{GetPermissionBits()} {1,3} {User.Name,-8} {Group.Name,-8} {FileSize,8} {LastModifiedTime,12:MMM dd HH:mm} {name}").ToString(CultureInfo.InvariantCulture);
+    public IDictionary<string, string> ExtendeAttributes { get; } =
+        new Dictionary<string, string>();
 
-    public static SFTPAttributes FromFileSystemInfo(FileSystemInfo fileSystemInfo)
-        => new(
+    public string GetLongFileName(string name) =>
+        (
+            (FormattableString)
+                $"{GetPermissionBits()} {1, 3} {User.Name, -8} {Group.Name, -8} {FileSize, 8} {LastModifiedTime, 12:MMM dd HH:mm} {name}"
+        ).ToString(CultureInfo.InvariantCulture);
+
+    public static SFTPAttributes FromFileSystemInfo(FileSystemInfo fileSystemInfo) =>
+        new(
             GetLength(fileSystemInfo),
             SFTPUser.Root,
             SFTPGroup.Root,
@@ -34,24 +50,24 @@ public record SFTPAttributes(
             fileSystemInfo.LastWriteTimeUtc
         );
 
-    private string GetPermissionBits()
-        => $"{(Permissions.HasFlag(Permissions.Directory) ? "d" : "-")}{AttrStr(Permissions.HasFlag(Permissions.UserRead), Permissions.HasFlag(Permissions.UserWrite), Permissions.HasFlag(Permissions.UserExecute))}{AttrStr(Permissions.HasFlag(Permissions.GroupRead), Permissions.HasFlag(Permissions.GroupWrite), Permissions.HasFlag(Permissions.GroupExecute))}{AttrStr(Permissions.HasFlag(Permissions.OtherRead), Permissions.HasFlag(Permissions.OtherWrite), Permissions.HasFlag(Permissions.OtherExecute))}";
+    private string GetPermissionBits() =>
+        $"{(Permissions.HasFlag(Permissions.Directory) ? "d" : "-")}{AttrStr(Permissions.HasFlag(Permissions.UserRead), Permissions.HasFlag(Permissions.UserWrite), Permissions.HasFlag(Permissions.UserExecute))}{AttrStr(Permissions.HasFlag(Permissions.GroupRead), Permissions.HasFlag(Permissions.GroupWrite), Permissions.HasFlag(Permissions.GroupExecute))}{AttrStr(Permissions.HasFlag(Permissions.OtherRead), Permissions.HasFlag(Permissions.OtherWrite), Permissions.HasFlag(Permissions.OtherExecute))}";
 
-    private static string AttrStr(bool read, bool write, bool execute)
-        => $"{(read ? "r" : "-")}{(write ? "w" : "-")}{(execute ? "x" : "-")}";
+    private static string AttrStr(bool read, bool write, bool execute) =>
+        $"{(read ? "r" : "-")}{(write ? "w" : "-")}{(execute ? "x" : "-")}";
 
-    private static Permissions GetFileTypeBits(FileSystemInfo fsInfo)
-        => fsInfo switch
+    private static Permissions GetFileTypeBits(FileSystemInfo fsInfo) =>
+        fsInfo switch
         {
             DirectoryInfo => Permissions.DefaultDirectory,
             FileInfo => Permissions.DefaultFile,
-            _ => Permissions.None
+            _ => Permissions.None,
         };
 
-    private static ulong GetLength(FileSystemInfo fsInfo)
-        => fsInfo switch
+    private static ulong GetLength(FileSystemInfo fsInfo) =>
+        fsInfo switch
         {
             FileInfo => (ulong)((FileInfo)fsInfo).Length,
-            _ => 0
+            _ => 0,
         };
 }

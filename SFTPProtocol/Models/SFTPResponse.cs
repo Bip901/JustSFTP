@@ -5,20 +5,27 @@ using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Protocol.Enums;
 using JustSFTP.Protocol.IO;
+using JustSFTP.Protocol.Models;
 
 /// <summary>
 /// An abstract SFTP response sent from server to client.
 /// </summary>
 public abstract record SFTPResponse(uint RequestId)
 {
-    public delegate Task<SFTPResponse> ReadAsyncMethod(
+    private delegate Task<SFTPResponse> ReadAsyncMethod(
         SshStreamReader reader,
         uint protocolVersion,
         CancellationToken cancellationToken
     );
 
     private static readonly Dictionary<ResponseType, ReadAsyncMethod> ResponseTypeToReadAsyncMethod =
-        new() { { ResponseType.Status, SFTPStatus.ReadAsync } };
+        new()
+        {
+            { ResponseType.Status, SFTPStatus.ReadAsync },
+            { ResponseType.Name, SFTPNameResponse.ReadAsync },
+            { ResponseType.Handle, SFTPHandleResponse.ReadAsync },
+            { ResponseType.Data, SFTPData.ReadAsync },
+        };
 
     /// <summary>
     /// The write response type of this object.

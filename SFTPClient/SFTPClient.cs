@@ -22,18 +22,32 @@ public class SFTPClient : IDisposable
     /// </summary>
     public TraceSource TraceSource { get; }
 
+    /// <summary>
+    /// The negotiated protocol version.
+    /// This will be 0 until <see cref="RunAsync"/> is called and a handshake is performed.
+    /// </summary>
+    public uint ProtocolVersion { get; private set; } = 0;
+
     private readonly SshStreamReader reader;
     private readonly SshStreamWriter writer;
     private uint lastRequestId = 0;
-    private uint protocolVersion = 0;
+
     private readonly SemaphoreSlim writerSempahore;
-    private readonly ConcurrentDictionary<uint, TaskCompletionSource<SFTPResponse>> requestsAwaitingResponse;
+    private readonly ConcurrentDictionary<
+        uint,
+        TaskCompletionSource<SFTPResponse>
+    > requestsAwaitingResponse;
 
     /// <summary>
     /// Creates a new <see cref="SFTPClient"/> over the given streams. The client is not responsible for closing the streams.
     /// </summary>
     /// <exception cref="ArgumentNullException"></exception>
-    public SFTPClient(Stream inStream, Stream outStream, int writeBufferSize = 1048576, TraceSource? traceSource = null)
+    public SFTPClient(
+        Stream inStream,
+        Stream outStream,
+        int writeBufferSize = 1048576,
+        TraceSource? traceSource = null
+    )
     {
         reader = new SshStreamReader(inStream ?? throw new ArgumentNullException(nameof(inStream)));
         writer = new SshStreamWriter(
@@ -62,17 +76,34 @@ public class SFTPClient : IDisposable
     /// <exception cref="InvalidDataException"/>
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
-        protocolVersion = await InitAsync(cancellationToken);
-        TraceSource.TraceEvent(TraceEventType.Information, TraceEventIds.SFTPClient_InitSuccess, $"Negotiated protocol version: {protocolVersion}");
+        ProtocolVersion = await InitAsync(cancellationToken);
+        TraceSource.TraceEvent(
+            TraceEventType.Information,
+            TraceEventIds.SFTPClient_InitSuccess,
+            $"Negotiated protocol version: {ProtocolVersion}"
+        );
         try
         {
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                SFTPResponse response = await SFTPResponse.ReadAsync(reader, protocolVersion, cancellationToken);
-                if (!requestsAwaitingResponse.TryRemove(response.RequestId, out TaskCompletionSource<SFTPResponse>? taskCompletionSource))
+                SFTPResponse response = await SFTPResponse.ReadAsync(
+                    reader,
+                    ProtocolVersion,
+                    cancellationToken
+                );
+                if (
+                    !requestsAwaitingResponse.TryRemove(
+                        response.RequestId,
+                        out TaskCompletionSource<SFTPResponse>? taskCompletionSource
+                    )
+                )
                 {
-                    TraceSource.TraceEvent(TraceEventType.Warning, TraceEventIds.SFTPClient_DroppingResponse, $"Ignoring response for non-existent request id {response.RequestId}");
+                    TraceSource.TraceEvent(
+                        TraceEventType.Warning,
+                        TraceEventIds.SFTPClient_DroppingResponse,
+                        $"Ignoring response for non-existent request id {response.RequestId}"
+                    );
                     continue;
                 }
                 taskCompletionSource.SetResult(response);

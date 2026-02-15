@@ -3,9 +3,13 @@ using JustSFTP.Protocol.Enums;
 
 namespace JustSFTP.Server.Exceptions;
 
-public abstract class HandlerException : Exception
+/// <summary>
+/// Thrown when a status needs to be returned to the client (instead of the usual response).
+/// </summary>
+public class HandlerException(Status Status) : Exception
 {
-    public Status Status { get; init; }
-
-    public HandlerException(Status status) => Status = status;
+    /// <summary>
+    /// The status to return to the client.
+    /// </summary>
+    public Status Status { get; init; } = Status;
 }

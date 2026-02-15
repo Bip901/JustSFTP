@@ -39,14 +39,12 @@ public class SshStreamWriter : IDisposable
     public Task Write(Status status, CancellationToken cancellationToken = default)
         => Write((uint)status, cancellationToken);
 
-    public async Task Write(IReadOnlyCollection<SFTPName> names, CancellationToken cancellationToken = default)
+    public async Task Write(SFTPName name, CancellationToken cancellationToken = default)
     {
-        await Write(names.Count, cancellationToken).ConfigureAwait(false);
-
-        foreach (var name in names)
-        {
-            await Write(name, cancellationToken).ConfigureAwait(false);
-        }
+        SFTPAttributes fileattrs = name.Attributes;
+        await Write(name.Name, cancellationToken).ConfigureAwait(false);
+        await Write(name.LongName, cancellationToken).ConfigureAwait(false);
+        await Write(fileattrs, PFlags.DEFAULT, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task Write(SFTPAttributes attributes, PFlags flags = PFlags.DEFAULT, CancellationToken cancellationToken = default)
@@ -86,14 +84,6 @@ public class SshStreamWriter : IDisposable
 
     public async Task Write(DateTimeOffset dateTime, CancellationToken cancellationToken = default)
         => await Write((uint)dateTime.ToUnixTimeSeconds(), cancellationToken).ConfigureAwait(false);
-
-    public async Task Write(SFTPName name, CancellationToken cancellationToken = default)
-    {
-        var fileattrs = name.Attributes;
-        await Write(name.Name, cancellationToken).ConfigureAwait(false);
-        await Write(fileattrs.GetLongFileName(name.Name), cancellationToken).ConfigureAwait(false);
-        await Write(fileattrs, PFlags.DEFAULT, cancellationToken).ConfigureAwait(false);
-    }
 
     public Task Write(byte value, CancellationToken cancellationToken = default)
         => Write(new[] { value }, cancellationToken);

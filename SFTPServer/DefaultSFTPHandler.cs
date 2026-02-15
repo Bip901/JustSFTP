@@ -45,24 +45,21 @@ public class DefaultSFTPHandler : ISFTPHandler
         return Task.CompletedTask;
     }
 
-    public virtual async Task<SFTPData> Read(SFTPHandle handle, ulong offset, uint length, CancellationToken cancellationToken = default)
+    /// <inheritdoc/>
+    public virtual async Task<byte[]> Read(SFTPHandle handle, ulong offset, uint length, CancellationToken cancellationToken = default)
     {
-        if (TryGetStreamHandle(handle, out var stream))
+        if (!TryGetStreamHandle(handle, out var stream))
         {
-            if (offset < (ulong)stream.Length)
-            {
-                stream.Seek((long)offset, SeekOrigin.Begin);
-                var buff = new byte[length];
-                var bytesread = await stream.ReadAsync(buff.AsMemory(0, (int)length), cancellationToken).ConfigureAwait(false);
-
-                return new SFTPData(buff[..bytesread]);
-            }
-            else
-            {
-                return SFTPData.EOF;
-            }
+            throw new HandleNotFoundException(handle);
         }
-        throw new HandleNotFoundException(handle);
+        if (offset >= (ulong)stream.Length)
+        {
+            throw new HandlerException(Protocol.Enums.Status.EndOfFile);
+        }
+        stream.Seek((long)offset, SeekOrigin.Begin);
+        byte[] buffer = new byte[length];
+        int bytesRead = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+        return buffer[..bytesRead];
     }
 
     public virtual async Task Write(SFTPHandle handle, ulong offset, byte[] data, CancellationToken cancellationToken = default)
