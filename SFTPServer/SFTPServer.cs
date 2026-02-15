@@ -373,7 +373,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     private static string GetStatusString(Status status)
         => status switch
         {
-            Status.Ok => "Succes",
+            Status.Ok => "Success",
             Status.EndOfFile => "End of file",
             Status.NoSuchFile => "No such file",
             Status.PermissionDenied => "Permission denied",
