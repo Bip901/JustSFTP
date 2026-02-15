@@ -30,7 +30,7 @@ public interface ISFTPHandler
     Task<SFTPPath> RealPath(SFTPPath path, CancellationToken cancellationToken = default);
     Task<SFTPAttributes> Stat(SFTPPath path, CancellationToken cancellationToken = default);
     Task Rename(SFTPPath oldPath, SFTPPath newPath, CancellationToken cancellationToken = default);
-    Task Extended(string name, Stream inStream, Stream outStream);
+    Task<SFTPResponse> Extended(string name, Stream inStream, Stream outStream);
 #if NET6_0_OR_GREATER
     Task<SFTPName> ReadLink(SFTPPath path, CancellationToken cancellationToken = default);
     Task SymLink(SFTPPath linkPath, SFTPPath targetPath, CancellationToken cancellationToken = default);

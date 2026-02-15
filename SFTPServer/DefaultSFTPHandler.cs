@@ -178,7 +178,7 @@ public class DefaultSFTPHandler : ISFTPHandler
     }
 #endif
 
-    public virtual Task Extended(string name, Stream inStream, Stream outStream)
+    public virtual Task<SFTPResponse> Extended(string name, Stream inStream, Stream outStream)
         => throw new NotImplementedException();
 
     public virtual string GetPhysicalPath(SFTPPath path)
