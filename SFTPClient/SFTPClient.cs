@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Protocol.Enums;
 using JustSFTP.Protocol.IO;
+using JustSFTP.Protocol.Models.Responses;
 
 namespace JustSFTP.Client;
 

@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Protocol.Models;
+using JustSFTP.Protocol.Models.Responses;
 using JustSFTP.Server.Exceptions;
 
 namespace JustSFTP.Server;

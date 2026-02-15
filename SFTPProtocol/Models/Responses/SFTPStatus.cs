@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using JustSFTP.Protocol.Enums;
 using JustSFTP.Protocol.IO;
 
-namespace JustSFTP.Protocol.Models;
+namespace JustSFTP.Protocol.Models.Responses;
 
 /// <summary>
 /// SSH_FXP_STATUS

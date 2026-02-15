@@ -5,7 +5,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Protocol.Enums;
 using JustSFTP.Protocol.IO;
-using JustSFTP.Protocol.Models;
+
+namespace JustSFTP.Protocol.Models.Responses;
 
 /// <summary>
 /// An abstract SFTP response sent from server to client.
