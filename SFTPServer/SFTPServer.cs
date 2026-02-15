@@ -144,7 +144,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         var serverextensions = await _sftphandler.Init(clientversion, Environment.UserName, new SFTPExtensions(clientExtensions), cancellationToken).ConfigureAwait(false);
 
         // Send version response
-        await _writer.Write(RequestType.Version, cancellationToken).ConfigureAwait(false);
+        await _writer.Write(ResponseType.Version, cancellationToken).ConfigureAwait(false);
         await _writer.Write(_protocolversion, cancellationToken).ConfigureAwait(false);
         foreach (var e in serverextensions)
         {

@@ -3,7 +3,6 @@
 public enum RequestType : byte
 {
     Init = 0x01,
-    Version = 0x02,
     Open = 0x03,
     Close = 0x04,
     Read = 0x05,
