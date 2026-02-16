@@ -46,7 +46,9 @@ public sealed class DummyServer : IAsyncDisposable
         );
 
         CancellationTokenSource serverCancel = new();
-        SFTPServer server = new(serverRead, serverWrite, new SFTPPath(string.Empty));
+        string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+        SFTPPath sftpRoot = new(Path.Combine(baseDirectory, "DummyServerFiles"));
+        SFTPServer server = new(serverRead, serverWrite, sftpRoot);
         return new DummyServer(
             server,
             Task.Run(() => server.Run(serverCancel.Token)),
