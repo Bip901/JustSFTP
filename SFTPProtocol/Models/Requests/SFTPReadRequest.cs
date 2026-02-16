@@ -6,17 +6,13 @@ using JustSFTP.Protocol.IO;
 namespace JustSFTP.Protocol.Models.Responses;
 
 /// <summary>
-/// SSH_FXP_OPEN
+/// SSH_FXP_READ
 /// </summary>
-public record SFTPOpenRequest(
-    uint RequestId,
-    string Path,
-    AccessFlags Flags,
-    SFTPAttributes Attributes
-) : SFTPRequest(RequestId)
+public record SFTPReadRequest(uint RequestId, string Handle, ulong Offset, uint Length)
+    : SFTPRequest(RequestId)
 {
     /// <inheritdoc/>
-    public override RequestType RequestType => RequestType.Open;
+    public override RequestType RequestType => RequestType.Read;
 
     /// <inheritdoc/>
     public override async Task WriteAsync(
@@ -25,8 +21,8 @@ public record SFTPOpenRequest(
     )
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
-        await writer.Write(Path, cancellationToken);
-        await writer.Write((uint)Flags, cancellationToken);
-        await writer.Write(Attributes, PFlags.DEFAULT, cancellationToken);
+        await writer.Write(Handle, cancellationToken).ConfigureAwait(false);
+        await writer.Write(Offset, cancellationToken).ConfigureAwait(false);
+        await writer.Write(Length, cancellationToken).ConfigureAwait(false);
     }
 }
