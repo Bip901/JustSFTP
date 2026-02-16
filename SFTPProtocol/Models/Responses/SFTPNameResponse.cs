@@ -37,7 +37,6 @@ public record SFTPNameResponse(uint RequestId, IReadOnlyCollection<SFTPName> Nam
     /// <exception cref="ObjectDisposedException"/>
     public static new async Task<SFTPResponse> ReadAsync(
         SshStreamReader reader,
-        uint protocolVersion,
         CancellationToken cancellationToken
     )
     {

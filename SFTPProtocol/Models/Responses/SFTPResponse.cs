@@ -15,7 +15,6 @@ public abstract record SFTPResponse(uint RequestId)
 {
     private delegate Task<SFTPResponse> ReadAsyncMethod(
         SshStreamReader reader,
-        uint protocolVersion,
         CancellationToken cancellationToken
     );
 
@@ -57,10 +56,10 @@ public abstract record SFTPResponse(uint RequestId)
     /// <exception cref="ObjectDisposedException"/>
     public static async Task<SFTPResponse> ReadAsync(
         SshStreamReader reader,
-        uint protocolVersion,
         CancellationToken cancellationToken
     )
     {
+        uint _messageLength = await reader.ReadUInt32(cancellationToken); // Ignore message length, all fields can be deduced from their types
         ResponseType responseType = (ResponseType)await reader.ReadByte(cancellationToken);
         if (
             !ResponseTypeToReadAsyncMethod.TryGetValue(
@@ -71,7 +70,6 @@ public abstract record SFTPResponse(uint RequestId)
         {
             throw new InvalidDataException($"Invalid response type: {responseType}");
         }
-        uint _messageLength = await reader.ReadUInt32(cancellationToken); // Ignore message length, all fields can be deduced from their types
-        return await readAsyncMethod(reader, protocolVersion, cancellationToken);
+        return await readAsyncMethod(reader, cancellationToken);
     }
 }

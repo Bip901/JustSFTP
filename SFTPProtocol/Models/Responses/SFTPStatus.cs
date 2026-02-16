@@ -48,19 +48,13 @@ public record SFTPStatus(uint RequestId, Status Status) : SFTPResponse(RequestId
     /// <exception cref="ObjectDisposedException"/>
     public static new async Task<SFTPResponse> ReadAsync(
         SshStreamReader reader,
-        uint protocolVersion,
         CancellationToken cancellationToken
     )
     {
         uint requestId = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
-        Status status = (Status)await reader.ReadByte(cancellationToken).ConfigureAwait(false);
-        string? errorMessage = null,
-            languageTag = null;
-        if (protocolVersion >= 3)
-        {
-            errorMessage = await reader.ReadString(cancellationToken).ConfigureAwait(false);
-            languageTag = await reader.ReadString(cancellationToken).ConfigureAwait(false);
-        }
+        Status status = (Status)await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
+        string errorMessage = await reader.ReadString(cancellationToken).ConfigureAwait(false);
+        string languageTag = await reader.ReadString(cancellationToken).ConfigureAwait(false);
         return new SFTPStatus(requestId, status)
         {
             ErrorMessage = errorMessage,
