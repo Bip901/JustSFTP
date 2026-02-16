@@ -19,14 +19,16 @@ public abstract record SFTPResponse(uint RequestId)
         CancellationToken cancellationToken
     );
 
-    private static readonly Dictionary<ResponseType, ReadAsyncMethod> ResponseTypeToReadAsyncMethod =
-        new()
-        {
-            { ResponseType.Status, SFTPStatus.ReadAsync },
-            { ResponseType.Name, SFTPNameResponse.ReadAsync },
-            { ResponseType.Handle, SFTPHandleResponse.ReadAsync },
-            { ResponseType.Data, SFTPData.ReadAsync },
-        };
+    private static readonly Dictionary<
+        ResponseType,
+        ReadAsyncMethod
+    > ResponseTypeToReadAsyncMethod = new()
+    {
+        { ResponseType.Status, SFTPStatus.ReadAsync },
+        { ResponseType.Name, SFTPNameResponse.ReadAsync },
+        { ResponseType.Handle, SFTPHandleResponse.ReadAsync },
+        { ResponseType.Data, SFTPData.ReadAsync },
+    };
 
     /// <summary>
     /// The write response type of this object.
@@ -60,10 +62,16 @@ public abstract record SFTPResponse(uint RequestId)
     )
     {
         ResponseType responseType = (ResponseType)await reader.ReadByte(cancellationToken);
-        if (!ResponseTypeToReadAsyncMethod.TryGetValue(responseType, out ReadAsyncMethod? readAsyncMethod))
+        if (
+            !ResponseTypeToReadAsyncMethod.TryGetValue(
+                responseType,
+                out ReadAsyncMethod? readAsyncMethod
+            )
+        )
         {
             throw new InvalidDataException($"Invalid response type: {responseType}");
         }
+        uint _messageLength = await reader.ReadUInt32(cancellationToken); // Ignore message length, all fields can be deduced from their types
         return await readAsyncMethod(reader, protocolVersion, cancellationToken);
     }
 }
