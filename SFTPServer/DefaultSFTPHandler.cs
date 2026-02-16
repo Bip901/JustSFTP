@@ -1,13 +1,12 @@
-﻿using JustSFTP.Server.Exceptions;
-using JustSFTP.Protocol.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using JustSFTP.Protocol.Models.Responses;
+using JustSFTP.Protocol;
+using JustSFTP.Protocol.Models;
 
 namespace JustSFTP.Server;
 
@@ -19,16 +18,28 @@ public class DefaultSFTPHandler : ISFTPHandler
 
     private static readonly Uri _virtualroot = new("virt://", UriKind.Absolute);
 
-    public DefaultSFTPHandler(SFTPPath root)
-        => _root = root ?? throw new ArgumentNullException(nameof(root));
+    public DefaultSFTPHandler(SFTPPath root) =>
+        _root = root ?? throw new ArgumentNullException(nameof(root));
 
-    public virtual Task<SFTPExtensions> Init(uint clientVersion, SFTPExtensions extensions, CancellationToken cancellationToken = default)
-        => Task.FromResult(SFTPExtensions.None);
+    public virtual Task<SFTPExtensions> Init(
+        uint clientVersion,
+        SFTPExtensions extensions,
+        CancellationToken cancellationToken = default
+    ) => Task.FromResult(SFTPExtensions.None);
 
-    public virtual Task<SFTPHandle> Open(SFTPPath path, FileMode fileMode, FileAccess fileAccess, SFTPAttributes attributes, CancellationToken cancellationToken = default)
+    public virtual Task<SFTPHandle> Open(
+        SFTPPath path,
+        FileMode fileMode,
+        FileAccess fileAccess,
+        SFTPAttributes attributes,
+        CancellationToken cancellationToken = default
+    )
     {
         var handle = CreateHandle();
-        _streamhandles.Add(handle, File.Open(GetPhysicalPath(path), fileMode, fileAccess, FileShare.ReadWrite));
+        _streamhandles.Add(
+            handle,
+            File.Open(GetPhysicalPath(path), fileMode, fileAccess, FileShare.ReadWrite)
+        );
         _filehandles.Add(handle, path);
         return Task.FromResult(handle);
     }
@@ -47,11 +58,16 @@ public class DefaultSFTPHandler : ISFTPHandler
     }
 
     /// <inheritdoc/>
-    public virtual async Task<byte[]> Read(SFTPHandle handle, ulong offset, uint length, CancellationToken cancellationToken = default)
+    public virtual async Task<byte[]> Read(
+        SFTPHandle handle,
+        ulong offset,
+        uint length,
+        CancellationToken cancellationToken = default
+    )
     {
         if (!TryGetStreamHandle(handle, out var stream))
         {
-            throw new HandleNotFoundException(handle);
+            throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
         }
         if (offset >= (ulong)stream.Length)
         {
@@ -63,7 +79,12 @@ public class DefaultSFTPHandler : ISFTPHandler
         return buffer[..bytesRead];
     }
 
-    public virtual async Task Write(SFTPHandle handle, ulong offset, byte[] data, CancellationToken cancellationToken = default)
+    public virtual async Task Write(
+        SFTPHandle handle,
+        ulong offset,
+        byte[] data,
+        CancellationToken cancellationToken = default
+    )
     {
         if (TryGetStreamHandle(handle, out var stream))
         {
@@ -74,38 +95,61 @@ public class DefaultSFTPHandler : ISFTPHandler
             await stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
             return;
         }
-        throw new HandleNotFoundException(handle);
+        throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
     }
 
-    public virtual Task<SFTPAttributes> LStat(SFTPPath path, CancellationToken cancellationToken = default)
-        => TryGetFSObject(path, out var fso)
+    public virtual Task<SFTPAttributes> LStat(
+        SFTPPath path,
+        CancellationToken cancellationToken = default
+    ) =>
+        TryGetFSObject(path, out var fso)
             ? Task.FromResult(SFTPAttributes.FromFileSystemInfo(fso))
-            : throw new PathNotFoundException(path);
+            : throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
 
-    public virtual Task<SFTPAttributes> FStat(SFTPHandle handle, CancellationToken cancellationToken = default)
-        => TryGetFileHandle(handle, out var path)
-        ? Stat(path, cancellationToken)
-        : throw new HandleNotFoundException(handle);
+    public virtual Task<SFTPAttributes> FStat(
+        SFTPHandle handle,
+        CancellationToken cancellationToken = default
+    ) =>
+        TryGetFileHandle(handle, out var path)
+            ? Stat(path, cancellationToken)
+            : throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
 
-    public virtual Task SetStat(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default)
-        => DoStat(path, attributes, cancellationToken);
+    public virtual Task SetStat(
+        SFTPPath path,
+        SFTPAttributes attributes,
+        CancellationToken cancellationToken = default
+    ) => DoStat(path, attributes, cancellationToken);
 
-    public virtual Task FSetStat(SFTPHandle handle, SFTPAttributes attributes, CancellationToken cancellationToken = default)
-        => TryGetFileHandle(handle, out var path)
+    public virtual Task FSetStat(
+        SFTPHandle handle,
+        SFTPAttributes attributes,
+        CancellationToken cancellationToken = default
+    ) =>
+        TryGetFileHandle(handle, out var path)
             ? SetStat(path, attributes, cancellationToken)
-            : throw new HandleNotFoundException(handle);
+            : throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
 
-    public virtual Task<SFTPHandle> OpenDir(SFTPPath path, CancellationToken cancellationToken = default)
+    public virtual Task<SFTPHandle> OpenDir(
+        SFTPPath path,
+        CancellationToken cancellationToken = default
+    )
     {
         var handle = CreateHandle();
         _filehandles.Add(handle, path);
         return Task.FromResult(handle);
     }
 
-    public virtual Task<IEnumerable<SFTPName>> ReadDir(SFTPHandle handle, CancellationToken cancellationToken = default)
-        => TryGetFileHandle(handle, out var path)
-            ? Task.FromResult(new DirectoryInfo(GetPhysicalPath(path)).GetFileSystemInfos().Select(fso => SFTPName.FromFileSystemInfo(fso)))
-            : throw new HandleNotFoundException(handle);
+    public virtual Task<IEnumerable<SFTPName>> ReadDir(
+        SFTPHandle handle,
+        CancellationToken cancellationToken = default
+    ) =>
+        TryGetFileHandle(handle, out var path)
+            ? Task.FromResult(
+                new DirectoryInfo(GetPhysicalPath(path))
+                    .GetFileSystemInfos()
+                    .Select(fso => SFTPName.FromFileSystemInfo(fso))
+            )
+            : throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
 
     public virtual Task Remove(SFTPPath path, CancellationToken cancellationToken = default)
     {
@@ -114,10 +158,14 @@ public class DefaultSFTPHandler : ISFTPHandler
             File.Delete(fsObject.FullName);
             return Task.CompletedTask;
         }
-        throw new PathNotFoundException(path);
+        throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
     }
 
-    public virtual Task MakeDir(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default)
+    public virtual Task MakeDir(
+        SFTPPath path,
+        SFTPAttributes attributes,
+        CancellationToken cancellationToken = default
+    )
     {
         Directory.CreateDirectory(GetPhysicalPath(path));
         return Task.CompletedTask;
@@ -130,36 +178,51 @@ public class DefaultSFTPHandler : ISFTPHandler
             Directory.Delete(fsObject.FullName);
             return Task.CompletedTask;
         }
-        throw new PathNotFoundException(path);
+        throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
     }
 
-    public virtual Task<SFTPPath> RealPath(SFTPPath path, CancellationToken cancellationToken = default)
-        => Task.FromResult(new SFTPPath(GetVirtualPath(path)));
+    public virtual Task<SFTPPath> RealPath(
+        SFTPPath path,
+        CancellationToken cancellationToken = default
+    ) => Task.FromResult(new SFTPPath(GetVirtualPath(path)));
 
-    public virtual Task<SFTPAttributes> Stat(SFTPPath path, CancellationToken cancellationToken = default)
-        => LStat(path, cancellationToken);
+    public virtual Task<SFTPAttributes> Stat(
+        SFTPPath path,
+        CancellationToken cancellationToken = default
+    ) => LStat(path, cancellationToken);
 
-    public virtual Task Rename(SFTPPath oldPath, SFTPPath newPath, CancellationToken cancellationToken = default)
+    public virtual Task Rename(
+        SFTPPath oldPath,
+        SFTPPath newPath,
+        CancellationToken cancellationToken = default
+    )
     {
         if (TryGetFSObject(oldPath, out var fsOldObject) && fsOldObject is FileInfo)
         {
             File.Move(fsOldObject.FullName, GetPhysicalPath(newPath));
             return Task.CompletedTask;
         }
-        throw new PathNotFoundException(oldPath);
+        throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
     }
 
 #if NET6_0_OR_GREATER
-    public virtual Task<SFTPName> ReadLink(SFTPPath path, CancellationToken cancellationToken = default)
+    public virtual Task<SFTPName> ReadLink(
+        SFTPPath path,
+        CancellationToken cancellationToken = default
+    )
     {
         if (TryGetFSObject(path, out var fsObject) && fsObject.LinkTarget != null)
         {
             return Task.FromResult(SFTPName.FromString(fsObject.LinkTarget));
         }
-        throw new PathNotFoundException(path);
+        throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
     }
 
-    public virtual Task SymLink(SFTPPath linkPath, SFTPPath targetPath, CancellationToken cancellationToken = default)
+    public virtual Task SymLink(
+        SFTPPath linkPath,
+        SFTPPath targetPath,
+        CancellationToken cancellationToken = default
+    )
     {
         var link = GetPhysicalPath(linkPath);
         if (TryGetFSObject(targetPath, out var fsObject))
@@ -175,17 +238,21 @@ public class DefaultSFTPHandler : ISFTPHandler
             }
             return Task.CompletedTask;
         }
-        throw new PathNotFoundException(targetPath);
+        throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
     }
 #endif
 
-    public virtual string GetPhysicalPath(SFTPPath path)
-        => Path.Join(_root.Path, GetVirtualPath(path));
+    public virtual string GetPhysicalPath(SFTPPath path) =>
+        Path.Join(_root.Path, GetVirtualPath(path));
 
-    public virtual string GetVirtualPath(SFTPPath path)
-        => new Uri(_virtualroot, path.Path).LocalPath;
+    public virtual string GetVirtualPath(SFTPPath path) =>
+        new Uri(_virtualroot, path.Path).LocalPath;
 
-    private Task DoStat(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default)
+    private Task DoStat(
+        SFTPPath path,
+        SFTPAttributes attributes,
+        CancellationToken cancellationToken = default
+    )
     {
         if (TryGetFSObject(path, out var fsoObject))
         {
@@ -203,7 +270,10 @@ public class DefaultSFTPHandler : ISFTPHandler
         return Task.CompletedTask;
     }
 
-    private bool TryGetFSObject(SFTPPath path, [NotNullWhen(true)] out FileSystemInfo? fileSystemObject)
+    private bool TryGetFSObject(
+        SFTPPath path,
+        [NotNullWhen(true)] out FileSystemInfo? fileSystemObject
+    )
     {
         var resolved = GetPhysicalPath(path);
         if (Directory.Exists(resolved))
@@ -220,11 +290,11 @@ public class DefaultSFTPHandler : ISFTPHandler
         return false;
     }
 
-    private static SFTPHandle CreateHandle()
-        => new(Guid.NewGuid().ToString("N"));
+    private static SFTPHandle CreateHandle() => new(Guid.NewGuid().ToString("N"));
 
-    protected bool TryGetFileHandle(SFTPHandle key, [NotNullWhen(true)] out SFTPPath? path)
-        => _filehandles.TryGetValue(key, out path);
-    protected bool TryGetStreamHandle(SFTPHandle key, [NotNullWhen(true)] out Stream? stream)
-        => _streamhandles.TryGetValue(key, out stream);
+    protected bool TryGetFileHandle(SFTPHandle key, [NotNullWhen(true)] out SFTPPath? path) =>
+        _filehandles.TryGetValue(key, out path);
+
+    protected bool TryGetStreamHandle(SFTPHandle key, [NotNullWhen(true)] out Stream? stream) =>
+        _streamhandles.TryGetValue(key, out stream);
 }

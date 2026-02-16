@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using JustSFTP.Protocol;
 using JustSFTP.Protocol.Models;
-using JustSFTP.Server.Exceptions;
 
 namespace JustSFTP.Server;
 

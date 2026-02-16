@@ -1,7 +1,7 @@
 ﻿using System;
 using JustSFTP.Protocol.Enums;
 
-namespace JustSFTP.Server.Exceptions;
+namespace JustSFTP.Protocol;
 
 /// <summary>
 /// Thrown when a status needs to be returned to the client (instead of the usual response).
