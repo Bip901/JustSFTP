@@ -4,36 +4,90 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Protocol.Models;
-using JustSFTP.Protocol.Models.Responses;
 using JustSFTP.Server.Exceptions;
 
 namespace JustSFTP.Server;
 
 public interface ISFTPHandler
 {
-    Task<SFTPExtensions> Init(uint clientVersion, string user, SFTPExtensions extensions, CancellationToken cancellationToken = default);
-    Task<SFTPHandle> Open(SFTPPath path, FileMode fileMode, FileAccess fileAccess, SFTPAttributes attributes, CancellationToken cancellationToken = default);
+    Task<SFTPExtensions> Init(
+        uint clientVersion,
+        SFTPExtensions extensions,
+        CancellationToken cancellationToken = default
+    
+);
+    Task<SFTPHandle> Open(
+        SFTPPath path,
+        FileMode fileMode,
+        FileAccess fileAccess,
+        SFTPAttributes attributes,
+        CancellationToken cancellationToken = default
+    );
+
     Task Close(SFTPHandle handle, CancellationToken cancellationToken = default);
 
     /// <exception cref="HandlerException"/>
     /// <exception cref="Exception"/>
-    Task<byte[]> Read(SFTPHandle handle, ulong offset, uint length, CancellationToken cancellationToken = default);
-    Task Write(SFTPHandle handle, ulong offset, byte[] data, CancellationToken cancellationToken = default);
+    Task<byte[]> Read(
+        SFTPHandle handle,
+        ulong offset,
+        uint length,
+        CancellationToken cancellationToken = default
+    );
+
+    Task Write(
+        SFTPHandle handle,
+        ulong offset,
+        byte[] data,
+        CancellationToken cancellationToken = default
+    );
+
     Task<SFTPAttributes> LStat(SFTPPath path, CancellationToken cancellationToken = default);
+
     Task<SFTPAttributes> FStat(SFTPHandle handle, CancellationToken cancellationToken = default);
-    Task SetStat(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default);
-    Task FSetStat(SFTPHandle handle, SFTPAttributes attributes, CancellationToken cancellationToken = default);
+
+    Task SetStat(
+        SFTPPath path,
+        SFTPAttributes attributes,
+        CancellationToken cancellationToken = default
+    );
+
+    Task FSetStat(
+        SFTPHandle handle,
+        SFTPAttributes attributes,
+        CancellationToken cancellationToken = default
+    );
+
     Task<SFTPHandle> OpenDir(SFTPPath path, CancellationToken cancellationToken = default);
-    Task<IEnumerable<SFTPName>> ReadDir(SFTPHandle handle, CancellationToken cancellationToken = default);
+
+    Task<IEnumerable<SFTPName>> ReadDir(
+        SFTPHandle handle,
+        CancellationToken cancellationToken = default
+    );
+
     Task Remove(SFTPPath path, CancellationToken cancellationToken = default);
-    Task MakeDir(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default);
+
+    Task MakeDir(
+        SFTPPath path,
+        SFTPAttributes attributes,
+        CancellationToken cancellationToken = default
+    );
+
     Task RemoveDir(SFTPPath path, CancellationToken cancellationToken = default);
+
     Task<SFTPPath> RealPath(SFTPPath path, CancellationToken cancellationToken = default);
+
     Task<SFTPAttributes> Stat(SFTPPath path, CancellationToken cancellationToken = default);
+
     Task Rename(SFTPPath oldPath, SFTPPath newPath, CancellationToken cancellationToken = default);
-    Task<SFTPResponse> Extended(string name, Stream inStream, Stream outStream);
+
 #if NET6_0_OR_GREATER
     Task<SFTPName> ReadLink(SFTPPath path, CancellationToken cancellationToken = default);
-    Task SymLink(SFTPPath linkPath, SFTPPath targetPath, CancellationToken cancellationToken = default);
+
+    Task SymLink(
+        SFTPPath linkPath,
+        SFTPPath targetPath,
+        CancellationToken cancellationToken = default
+    );
 #endif
 }

@@ -166,19 +166,14 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
             extensiondatalength -= (uint)(nameBytes.Length + dataBytes.Length);
         }
 
-        var serverextensions = await _sftphandler
-            .Init(
-                clientversion,
-                Environment.UserName,
-                new SFTPExtensions(clientExtensions),
-                cancellationToken
-            )
+        SFTPExtensions serverExtensions = await _sftphandler
+            .Init(clientversion, new SFTPExtensions(clientExtensions), cancellationToken)
             .ConfigureAwait(false);
 
         // Send version response
         await _writer.Write(ResponseType.Version, cancellationToken).ConfigureAwait(false);
         await _writer.Write(_protocolversion, cancellationToken).ConfigureAwait(false);
-        foreach (var e in serverextensions)
+        foreach (var e in serverExtensions)
         {
             await _writer.Write(e.Key, cancellationToken).ConfigureAwait(false);
             await _writer.Write(e.Value, cancellationToken).ConfigureAwait(false);
@@ -449,15 +444,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        string name = await _reader.ReadString(cancellationToken).ConfigureAwait(false);
-
-        // Make sure we already output the requestId, the handler will have access to the output stream to write
-        // arbitrary data after this
-        await _writer.Write(requestId, cancellationToken).ConfigureAwait(false);
-        // Now the handler will have access to both our in- and out-streams
-        return await _sftphandler
-            .Extended(name, _reader.Stream, _writer.Stream)
-            .ConfigureAwait(false);
+        throw new NotImplementedException();
     }
 
     private SFTPStatus BuildStatus(uint requestId, Status status)

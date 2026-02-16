@@ -22,7 +22,7 @@ public class DefaultSFTPHandler : ISFTPHandler
     public DefaultSFTPHandler(SFTPPath root)
         => _root = root ?? throw new ArgumentNullException(nameof(root));
 
-    public virtual Task<SFTPExtensions> Init(uint clientVersion, string user, SFTPExtensions extensions, CancellationToken cancellationToken = default)
+    public virtual Task<SFTPExtensions> Init(uint clientVersion, SFTPExtensions extensions, CancellationToken cancellationToken = default)
         => Task.FromResult(SFTPExtensions.None);
 
     public virtual Task<SFTPHandle> Open(SFTPPath path, FileMode fileMode, FileAccess fileAccess, SFTPAttributes attributes, CancellationToken cancellationToken = default)
@@ -178,9 +178,6 @@ public class DefaultSFTPHandler : ISFTPHandler
         throw new PathNotFoundException(targetPath);
     }
 #endif
-
-    public virtual Task<SFTPResponse> Extended(string name, Stream inStream, Stream outStream)
-        => throw new NotImplementedException();
 
     public virtual string GetPhysicalPath(SFTPPath path)
         => Path.Join(_root.Path, GetVirtualPath(path));
