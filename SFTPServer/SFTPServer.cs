@@ -439,7 +439,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     }
 #endif
 
-    private async Task<SFTPResponse> ExtendedHandler(
+    private Task<SFTPResponse> ExtendedHandler(
         uint requestId,
         CancellationToken cancellationToken = default
     )

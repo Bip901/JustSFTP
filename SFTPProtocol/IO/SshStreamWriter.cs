@@ -120,7 +120,6 @@ public class SshStreamWriter : IDisposable
 
     public async Task Write(string str, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(str);
         byte[] data = SFTPStringEncoding.GetBytes(str);
         await Write(data.Length, cancellationToken).ConfigureAwait(false);
         await Write(data, cancellationToken).ConfigureAwait(false);
