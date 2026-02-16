@@ -478,7 +478,16 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
             _ => "Unknown error",
         };
 
-    public void Dispose() => ((IDisposable)_writer).Dispose();
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        ((IDisposable)_writer).Dispose();
+        if (_sftphandler is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+    }
 
     private class PagedResult<T>
     {

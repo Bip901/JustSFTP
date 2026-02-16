@@ -6,11 +6,15 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Protocol;
+using JustSFTP.Protocol.Enums;
 using JustSFTP.Protocol.Models;
 
 namespace JustSFTP.Server;
 
-public class DefaultSFTPHandler : ISFTPHandler
+/// <summary>
+/// Serves a subtree of the regular filesystem over SFTP.
+/// </summary>
+public class DefaultSFTPHandler : ISFTPHandler, IDisposable
 {
     private readonly Dictionary<SFTPHandle, SFTPPath> _filehandles = new();
     private readonly Dictionary<SFTPHandle, Stream> _streamhandles = new();
@@ -48,7 +52,7 @@ public class DefaultSFTPHandler : ISFTPHandler
     {
         _filehandles.Remove(handle);
 
-        if (TryGetStreamHandle(handle, out var stream))
+        if (_streamhandles.TryGetValue(handle, out Stream? stream))
         {
             stream.Close();
             stream.Dispose();
@@ -65,13 +69,10 @@ public class DefaultSFTPHandler : ISFTPHandler
         CancellationToken cancellationToken = default
     )
     {
-        if (!TryGetStreamHandle(handle, out var stream))
-        {
-            throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
-        }
+        Stream stream = RequireStreamHandle(handle);
         if (offset >= (ulong)stream.Length)
         {
-            throw new HandlerException(Protocol.Enums.Status.EndOfFile);
+            throw new HandlerException(Status.EndOfFile);
         }
         stream.Seek((long)offset, SeekOrigin.Begin);
         byte[] buffer = new byte[length];
@@ -86,16 +87,12 @@ public class DefaultSFTPHandler : ISFTPHandler
         CancellationToken cancellationToken = default
     )
     {
-        if (TryGetStreamHandle(handle, out var stream))
+        Stream stream = RequireStreamHandle(handle);
+        if (stream.Position != (long)offset)
         {
-            if (stream.Position != (long)offset)
-            {
-                stream.Seek((long)offset, SeekOrigin.Begin);
-            }
-            await stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
-            return;
+            stream.Seek((long)offset, SeekOrigin.Begin);
         }
-        throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
+        await stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
     }
 
     public virtual Task<SFTPAttributes> LStat(
@@ -295,6 +292,23 @@ public class DefaultSFTPHandler : ISFTPHandler
     protected bool TryGetFileHandle(SFTPHandle key, [NotNullWhen(true)] out SFTPPath? path) =>
         _filehandles.TryGetValue(key, out path);
 
-    protected bool TryGetStreamHandle(SFTPHandle key, [NotNullWhen(true)] out Stream? stream) =>
-        _streamhandles.TryGetValue(key, out stream);
+    private Stream RequireStreamHandle(SFTPHandle handle)
+    {
+        if (!_streamhandles.TryGetValue(handle, out Stream? stream))
+        {
+            throw new HandlerException(Status.NoSuchFile);
+        }
+        return stream;
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        foreach (Stream handle in _streamhandles.Values)
+        {
+            handle.Dispose();
+        }
+        _streamhandles.Clear();
+        _filehandles.Clear();
+    }
 }
