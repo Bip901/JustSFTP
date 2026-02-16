@@ -9,17 +9,26 @@ using JustSFTP.Protocol.Models;
 
 namespace JustSFTP.Protocol.IO;
 
+/// <summary>
+/// Reads SFTP data from any underlying stream.
+/// </summary>
 public class SshStreamReader
 {
-    public Encoding StringEncoding => _encoding;
+    public static readonly Encoding SFTPStringEncoding = new UTF8Encoding(false);
 
-    private readonly Stream _stream;
-    private readonly Encoding _encoding = new UTF8Encoding(false);
+    /// <summary>
+    /// The underlying stream.
+    /// </summary>
+    public Stream Stream { get; }
 
-    public Stream Stream => _stream;
-
-    public SshStreamReader(Stream stream) =>
-        _stream = stream ?? throw new ArgumentNullException(nameof(stream));
+    /// <summary>
+    /// Creates a new <see cref="SshStreamReader"/> that reads from the given stream.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"></exception>
+    public SshStreamReader(Stream stream)
+    {
+        Stream = stream ?? throw new ArgumentNullException(nameof(stream));
+    }
 
     public async Task<byte> ReadByte(CancellationToken cancellationToken = default) =>
         (await ReadBinary(1, cancellationToken).ConfigureAwait(false))[0];
@@ -35,7 +44,7 @@ public class SshStreamReader
         );
 
     public async Task<string> ReadString(CancellationToken cancellationToken = default) =>
-        StringEncoding.GetString(await ReadBinary(cancellationToken).ConfigureAwait(false));
+        SFTPStringEncoding.GetString(await ReadBinary(cancellationToken).ConfigureAwait(false));
 
     public async Task<AccessFlags> ReadAccessFlags(CancellationToken cancellationToken = default) =>
         (AccessFlags)await ReadUInt32(cancellationToken).ConfigureAwait(false);
@@ -99,12 +108,12 @@ public class SshStreamReader
 
     private async Task<byte[]> ReadBinary(int length, CancellationToken cancellationToken = default)
     {
-        var buffer = new byte[length];
-        var offset = 0;
+        byte[] buffer = new byte[length];
+        int offset = 0;
         int bytesread;
         do
         {
-            bytesread = await _stream
+            bytesread = await Stream
                 .ReadAsync(buffer.AsMemory(offset, length - offset), cancellationToken)
                 .ConfigureAwait(false);
             offset += bytesread;

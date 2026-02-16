@@ -161,8 +161,8 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         {
             byte[] nameBytes = await _reader.ReadBinary(cancellationToken).ConfigureAwait(false);
             byte[] dataBytes = await _reader.ReadBinary(cancellationToken).ConfigureAwait(false);
-            clientExtensions[_reader.StringEncoding.GetString(nameBytes)] =
-                _reader.StringEncoding.GetString(dataBytes);
+            clientExtensions[SshStreamReader.SFTPStringEncoding.GetString(nameBytes)] =
+                SshStreamReader.SFTPStringEncoding.GetString(dataBytes);
             extensiondatalength -= (uint)(nameBytes.Length + dataBytes.Length);
         }
 

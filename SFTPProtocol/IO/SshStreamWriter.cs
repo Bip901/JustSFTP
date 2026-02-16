@@ -1,43 +1,49 @@
-﻿using JustSFTP.Protocol.Enums;
-using JustSFTP.Protocol.Models;
-using System;
+﻿using System;
 using System.Buffers.Binary;
-using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using JustSFTP.Protocol.Enums;
+using JustSFTP.Protocol.Models;
 
 namespace JustSFTP.Protocol.IO;
 
+/// <summary>
+/// A buffered stream writer that sends length-prefixed messages on flush.
+/// </summary>
 public class SshStreamWriter : IDisposable
 {
-    private readonly Stream _stream;
-    private readonly MemoryStream _memorystream;
-    private static readonly Encoding _encoding = new UTF8Encoding(false);
+    private static readonly Encoding SFTPStringEncoding = new UTF8Encoding(false);
+    private readonly Stream innerStream;
+    private readonly MemoryStream memoryStream;
 
-    public Stream Stream => _memorystream;
-
+    /// <summary>
+    /// Creates a new <see cref="SshStreamWriter"/> that writes to the specified stream.
+    /// </summary>
+    /// <param name="stream">The underlying stream.</param>
+    /// <param name="bufferSize">The buffer size. Sent messages can't be longer than this number.</param>
+    /// <exception cref="ArgumentNullException"/>
     public SshStreamWriter(Stream stream, int bufferSize)
     {
-        _stream = stream ?? throw new ArgumentNullException(nameof(stream));
-        _memorystream = new MemoryStream(bufferSize);
+        innerStream = stream ?? throw new ArgumentNullException(nameof(stream));
+        memoryStream = new MemoryStream(bufferSize);
     }
 
-    public Task Write(RequestType requestType, CancellationToken cancellationToken = default)
-        => Write((byte)requestType, cancellationToken);
+    public Task Write(RequestType requestType, CancellationToken cancellationToken = default) =>
+        Write((byte)requestType, cancellationToken);
 
-    public Task Write(ResponseType responseType, CancellationToken cancellationToken = default)
-        => Write((byte)responseType, cancellationToken);
+    public Task Write(ResponseType responseType, CancellationToken cancellationToken = default) =>
+        Write((byte)responseType, cancellationToken);
 
-    public Task Write(PFlags fileAttributeFlags, CancellationToken cancellationToken = default)
-        => Write((uint)fileAttributeFlags, cancellationToken);
+    public Task Write(PFlags fileAttributeFlags, CancellationToken cancellationToken = default) =>
+        Write((uint)fileAttributeFlags, cancellationToken);
 
-    public Task Write(Permissions permissions, CancellationToken cancellationToken = default)
-        => Write((uint)permissions, cancellationToken);
+    public Task Write(Permissions permissions, CancellationToken cancellationToken = default) =>
+        Write((uint)permissions, cancellationToken);
 
-    public Task Write(Status status, CancellationToken cancellationToken = default)
-        => Write((uint)status, cancellationToken);
+    public Task Write(Status status, CancellationToken cancellationToken = default) =>
+        Write((uint)status, cancellationToken);
 
     public async Task Write(SFTPName name, CancellationToken cancellationToken = default)
     {
@@ -47,7 +53,11 @@ public class SshStreamWriter : IDisposable
         await Write(fileattrs, PFlags.DEFAULT, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task Write(SFTPAttributes attributes, PFlags flags = PFlags.DEFAULT, CancellationToken cancellationToken = default)
+    public async Task Write(
+        SFTPAttributes attributes,
+        PFlags flags = PFlags.DEFAULT,
+        CancellationToken cancellationToken = default
+    )
     {
         await Write(flags, cancellationToken).ConfigureAwait(false);
         if (flags.HasFlag(PFlags.Size))
@@ -73,65 +83,73 @@ public class SshStreamWriter : IDisposable
 
         if (flags.HasFlag(PFlags.Extended))
         {
-            await Write(attributes.ExtendeAttributes.Count, cancellationToken).ConfigureAwait(false);
+            await Write(attributes.ExtendeAttributes.Count, cancellationToken)
+                .ConfigureAwait(false);
             foreach (var a in attributes.ExtendeAttributes)
             {
-                await Write(a.Key, cancellationToken).ConfigureAwait(false);    //type
-                await Write(a.Value, cancellationToken).ConfigureAwait(false);  //data
+                await Write(a.Key, cancellationToken).ConfigureAwait(false); //type
+                await Write(a.Value, cancellationToken).ConfigureAwait(false); //data
             }
         }
     }
 
-    public async Task Write(DateTimeOffset dateTime, CancellationToken cancellationToken = default)
-        => await Write((uint)dateTime.ToUnixTimeSeconds(), cancellationToken).ConfigureAwait(false);
+    public async Task Write(
+        DateTimeOffset dateTime,
+        CancellationToken cancellationToken = default
+    ) => await Write((uint)dateTime.ToUnixTimeSeconds(), cancellationToken).ConfigureAwait(false);
 
-    public Task Write(byte value, CancellationToken cancellationToken = default)
-        => Write(new[] { value }, cancellationToken);
+    public Task Write(byte value, CancellationToken cancellationToken = default) =>
+        Write([value], cancellationToken);
 
-    public Task Write(int value, CancellationToken cancellationToken = default)
-        => Write((uint)value, cancellationToken);
+    public Task Write(int value, CancellationToken cancellationToken = default) =>
+        Write((uint)value, cancellationToken);
 
     public Task Write(uint value, CancellationToken cancellationToken = default)
     {
-        var bytes = new byte[4];
+        byte[] bytes = new byte[4];
         BinaryPrimitives.WriteUInt32BigEndian(bytes, value);
-        return _memorystream.WriteAsync(bytes, 0, 4, cancellationToken);
+        return memoryStream.WriteAsync(bytes, 0, 4, cancellationToken);
     }
 
     public Task Write(ulong value, CancellationToken cancellationToken = default)
     {
-        var bytes = new byte[8];
+        byte[] bytes = new byte[8];
         BinaryPrimitives.WriteUInt64BigEndian(bytes, value);
-        return _memorystream.WriteAsync(bytes, 0, 8, cancellationToken);
+        return memoryStream.WriteAsync(bytes, 0, 8, cancellationToken);
     }
 
     public async Task Write(string str, CancellationToken cancellationToken = default)
     {
-        if (str is null)
-        {
-            throw new ArgumentNullException(nameof(str));
-        }
-        var data = _encoding.GetBytes(str);
+        ArgumentNullException.ThrowIfNull(str);
+        byte[] data = SFTPStringEncoding.GetBytes(str);
         await Write(data.Length, cancellationToken).ConfigureAwait(false);
         await Write(data, cancellationToken).ConfigureAwait(false);
     }
 
-    public Task Write(byte[] data, CancellationToken cancellationToken = default)
-        => _memorystream.WriteAsync(data, 0, data.Length, cancellationToken);
+    public Task Write(byte[] data, CancellationToken cancellationToken = default) =>
+        memoryStream.WriteAsync(data, 0, data.Length, cancellationToken);
 
+    /// <summary>
+    /// Writes the built message, prefixed with its size, to the underlying stream.
+    /// </summary>
     public async Task Flush(CancellationToken cancellationToken = default)
     {
-        var data = _memorystream.ToArray();
+        var data = memoryStream.ToArray();
 
-        var len = new byte[4];
+        byte[] len = new byte[4];
         BinaryPrimitives.WriteUInt32BigEndian(len, (uint)data.Length);
 
-        await _stream.WriteAsync(len, cancellationToken).ConfigureAwait(false);
-        await _stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
+        await innerStream.WriteAsync(len, cancellationToken).ConfigureAwait(false);
+        await innerStream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
 
-        _memorystream.Position = 0;
-        _memorystream.SetLength(0);
+        memoryStream.Position = 0;
+        memoryStream.SetLength(0);
     }
 
-    public void Dispose() => ((IDisposable)_memorystream).Dispose();
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        ((IDisposable)memoryStream).Dispose();
+    }
 }

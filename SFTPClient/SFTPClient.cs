@@ -117,11 +117,14 @@ public class SFTPClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// Sends the given request to the remote server and waits for a response.
+    /// </summary>
+    /// <returns>The SFTP response.</returns>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    private async Task<SFTPResponse> RequestAsync(
-        RequestType requestType,
-        byte[] requestData,
+    public async Task<SFTPResponse> RequestAsync(
+        SFTPRequest request,
         CancellationToken cancellationToken
     )
     {
@@ -131,10 +134,8 @@ public class SFTPClient : IDisposable
         {
             uint requestId = ++lastRequestId;
             requestsAwaitingResponse.TryAdd(requestId, taskCompletionSource);
-            await writer.Write(requestData.Length + 5, cancellationToken);
-            await writer.Write(requestType, cancellationToken);
-            await writer.Write(requestId, cancellationToken);
-            await writer.Write(requestData, cancellationToken);
+            await request.WriteAsync(writer, cancellationToken);
+            await writer.Flush(cancellationToken);
         }
         finally
         {
@@ -170,8 +171,8 @@ public class SFTPClient : IDisposable
         {
             byte[] nameBytes = await reader.ReadBinary(cancellationToken).ConfigureAwait(false);
             byte[] dataBytes = await reader.ReadBinary(cancellationToken).ConfigureAwait(false);
-            serverExtensions[reader.StringEncoding.GetString(nameBytes)] =
-                reader.StringEncoding.GetString(dataBytes);
+            serverExtensions[SshStreamReader.SFTPStringEncoding.GetString(nameBytes)] =
+                SshStreamReader.SFTPStringEncoding.GetString(dataBytes);
             msglen -= (uint)(nameBytes.Length + dataBytes.Length);
         }
 
