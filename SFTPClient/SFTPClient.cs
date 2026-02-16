@@ -5,8 +5,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using JustSFTP.Protocol;
 using JustSFTP.Protocol.Enums;
 using JustSFTP.Protocol.IO;
+using JustSFTP.Protocol.Models;
 using JustSFTP.Protocol.Models.Responses;
 
 namespace JustSFTP.Client;
@@ -55,7 +57,7 @@ public class SFTPClient : IDisposable
             outStream ?? throw new ArgumentNullException(nameof(outStream)),
             writeBufferSize
         );
-        writerSempahore = new(1, 1);
+        writerSempahore = new(0, 1);
         requestsAwaitingResponse = [];
         TraceSource = traceSource ?? new TraceSource(nameof(SFTPClient), SourceLevels.Off);
     }
@@ -66,33 +68,37 @@ public class SFTPClient : IDisposable
         GC.SuppressFinalize(this);
         ((IDisposable)writer).Dispose();
         writerSempahore.Dispose();
+        ObjectDisposedException exception = new(nameof(SFTPClient));
+        foreach (
+            TaskCompletionSource<SFTPResponse> taskCompletionSource in requestsAwaitingResponse.Values
+        )
+        {
+            taskCompletionSource.TrySetException(exception);
+        }
+        requestsAwaitingResponse.Clear();
     }
 
     /// <summary>
     /// Runs the read loop of this client.
-    /// When this task is canceled, the client is automatically disposed.
+    /// When this task is canceled or throws an exception, the client is automatically disposed.
     /// </summary>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
     /// <exception cref="InvalidDataException"/>
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
-        ProtocolVersion = await InitAsync(cancellationToken);
-        TraceSource.TraceEvent(
-            TraceEventType.Information,
-            TraceEventIds.SFTPClient_InitSuccess,
-            $"Negotiated protocol version: {ProtocolVersion}"
-        );
         try
         {
+            ProtocolVersion = await InitAsync(cancellationToken);
+            TraceSource.TraceEvent(
+                TraceEventType.Information,
+                TraceEventIds.SFTPClient_InitSuccess,
+                $"Negotiated protocol version: {ProtocolVersion}"
+            );
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                SFTPResponse response = await SFTPResponse.ReadAsync(
-                    reader,
-                    ProtocolVersion,
-                    cancellationToken
-                );
+                SFTPResponse response = await SFTPResponse.ReadAsync(reader, cancellationToken);
                 if (
                     !requestsAwaitingResponse.TryRemove(
                         response.RequestId,
@@ -107,14 +113,52 @@ public class SFTPClient : IDisposable
                     );
                     continue;
                 }
-                taskCompletionSource.SetResult(response);
+                taskCompletionSource.TrySetResult(response);
             }
         }
-        catch (OperationCanceledException)
+        catch
         {
             Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    /// Opens the given file.
+    /// </summary>
+    /// <param name="Path">The remote path of the file to open.</param>
+    /// <param name="Flags">The access flags, e.g. read/write.</param>
+    /// <param name="Attributes">The initial attributes for the file. Default values will be used for those attributes that are not specified.</param>
+    /// <exception cref="HandlerException"/>
+    /// <exception cref="InvalidDataException"/>
+    /// <exception cref="OperationCanceledException"/>
+    /// <exception cref="ObjectDisposedException"/>
+    public async Task<SFTPHandle> OpenFileAsync(
+        string Path,
+        AccessFlags Flags,
+        SFTPAttributes Attributes
+    )
+    {
+        SFTPResponse response = await RequestAsync(
+                new SFTPOpenRequest(GetNextRequestId(), Path, Flags, Attributes)
+            )
+            .ConfigureAwait(false);
+        if (response is SFTPStatus status)
+        {
+            throw new HandlerException(status.Status);
+        }
+        if (response is not SFTPHandleResponse handleResponse)
+        {
+            throw new InvalidDataException(
+                $"Unexpected response type {response.GetType().FullName}"
+            );
+        }
+        return new SFTPHandle(handleResponse.Handle);
+    }
+
+    private uint GetNextRequestId()
+    {
+        return Interlocked.Increment(ref lastRequestId);
     }
 
     /// <summary>
@@ -123,17 +167,16 @@ public class SFTPClient : IDisposable
     /// <returns>The SFTP response.</returns>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public async Task<SFTPResponse> RequestAsync(
+    private async Task<SFTPResponse> RequestAsync(
         SFTPRequest request,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken = default
     )
     {
         TaskCompletionSource<SFTPResponse> taskCompletionSource = new();
         await writerSempahore.WaitAsync(cancellationToken);
         try
         {
-            uint requestId = ++lastRequestId;
-            requestsAwaitingResponse.TryAdd(requestId, taskCompletionSource);
+            requestsAwaitingResponse.TryAdd(request.RequestId, taskCompletionSource);
             await request.WriteAsync(writer, cancellationToken);
             await writer.Flush(cancellationToken);
         }
@@ -176,6 +219,7 @@ public class SFTPClient : IDisposable
             msglen -= (uint)(nameBytes.Length + dataBytes.Length);
         }
 
+        writerSempahore.Release(); // Allow requests to write
         return Math.Min(serverVersion, CLIENT_SFTP_PROTOCOL_VERSION);
     }
 }
