@@ -93,12 +93,20 @@ public class SFTPClient : IDisposable
             TraceSource.TraceEvent(
                 TraceEventType.Information,
                 TraceEventIds.SFTPClient_InitSuccess,
-                $"Negotiated protocol version: {ProtocolVersion}"
+                "Negotiated protocol version: {0}",
+                ProtocolVersion
             );
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 SFTPResponse response = await SFTPResponse.ReadAsync(reader, cancellationToken);
+                TraceSource.TraceEvent(
+                    TraceEventType.Verbose,
+                    TraceEventIds.SFTPClient_ReceivedResponse,
+                    "Response for request #{0}: {1}",
+                    response.RequestId,
+                    response
+                );
                 if (
                     !requestsAwaitingResponse.TryRemove(
                         response.RequestId,
@@ -109,7 +117,8 @@ public class SFTPClient : IDisposable
                     TraceSource.TraceEvent(
                         TraceEventType.Warning,
                         TraceEventIds.SFTPClient_DroppingResponse,
-                        $"Ignoring response for non-existent request id {response.RequestId}"
+                        "Ignoring response for non-existent request id {0}",
+                        response.RequestId
                     );
                     continue;
                 }
@@ -172,6 +181,13 @@ public class SFTPClient : IDisposable
         CancellationToken cancellationToken = default
     )
     {
+        TraceSource.TraceEvent(
+            TraceEventType.Verbose,
+            TraceEventIds.SFTPClient_SendingRequest,
+            "Request #{0}: {1}",
+            request.RequestId,
+            request.RequestType
+        );
         TaskCompletionSource<SFTPResponse> taskCompletionSource = new();
         await writerSempahore.WaitAsync(cancellationToken);
         try
