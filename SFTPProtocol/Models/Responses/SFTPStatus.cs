@@ -21,7 +21,7 @@ public record SFTPStatus(uint RequestId, Status Status) : SFTPResponse(RequestId
     public string? ErrorMessage { get; init; }
 
     /// <summary>
-    /// Language tag as defined in https://datatracker.ietf.org/doc/html/rfc1766.
+    /// Language tag as defined in https://datatracker.ietf.org/doc/html/rfc1766
     /// Only sent in protocol version >= 3.
     /// </summary>
     public string? LanguageTag { get; init; }

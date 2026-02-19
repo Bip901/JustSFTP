@@ -6,7 +6,7 @@ namespace JustSFTP.Protocol;
 /// <summary>
 /// Thrown when a status needs to be returned to the client (instead of the usual response).
 /// </summary>
-public class HandlerException(Status Status) : Exception
+public class HandlerException(Status Status) : Exception(Status.ToString())
 {
     /// <summary>
     /// The status to return to the client.

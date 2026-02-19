@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Client;
@@ -22,12 +23,19 @@ public class TestEndToEnd
         );
         CancellationTokenSource clientCancel = new();
         Task clientTask = Task.Run(() => client.RunAsync(clientCancel.Token));
-        byte[] handle = await client.OpenFileAsync(
-            "/example.txt",
-            Protocol.Enums.AccessFlags.Read,
-            SFTPAttributes.DummyFile
-        );
-        Assert.Equal(3u, client.ProtocolVersion);
+        await using (
+            Stream fileStream = await client.OpenFileAsync(
+                "/example.txt",
+                Protocol.Enums.AccessFlags.Read,
+                SFTPAttributes.DummyFile
+            )
+        )
+        {
+            Assert.Equal(3u, client.ProtocolVersion);
+            using StreamReader reader = new(fileStream, leaveOpen: true);
+            string fileContents = await reader.ReadToEndAsync();
+            Assert.Equal("This is an example file for testing.\n", fileContents);
+        }
         clientCancel.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(() => clientTask);
     }

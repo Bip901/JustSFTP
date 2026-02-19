@@ -110,8 +110,7 @@ public class SFTPClient : IDisposable
                 TraceSource.TraceEvent(
                     TraceEventType.Verbose,
                     TraceEventIds.SFTPClient_ReceivedResponse,
-                    "Response for request #{0}: {1}",
-                    response.RequestId,
+                    "RECV: {0}",
                     response
                 );
                 if (
@@ -139,6 +138,7 @@ public class SFTPClient : IDisposable
         }
     }
 
+    #region High-level requests
     /// <summary>
     /// Opens the given file.
     /// </summary>
@@ -149,7 +149,7 @@ public class SFTPClient : IDisposable
     /// <exception cref="InvalidDataException"/>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public async Task<byte[]> OpenFileAsync(
+    public async Task<Stream> OpenFileAsync(
         string Path,
         AccessFlags Flags,
         SFTPAttributes Attributes
@@ -159,18 +159,57 @@ public class SFTPClient : IDisposable
                 new SFTPOpenRequest(GetNextRequestId(), Path, Flags, Attributes)
             )
             .ConfigureAwait(false);
-        if (response is SFTPStatus status)
-        {
-            throw new HandlerException(status.Status);
-        }
-        if (response is not SFTPHandleResponse handleResponse)
-        {
-            throw new InvalidDataException(
-                $"Unexpected response type {response.GetType().FullName}"
-            );
-        }
-        return handleResponse.Handle;
+        SFTPHandleResponse handleResponse = CheckResponseTypeAndStatus<SFTPHandleResponse>(
+            response
+        );
+        return new SFTPFileStream(
+            this,
+            handleResponse.Handle,
+            Flags.HasFlag(AccessFlags.Read),
+            Flags.HasFlag(AccessFlags.Write)
+        );
     }
+    #endregion
+
+    #region Low-level requests
+    internal Task CloseFileAsync(byte[] handle, CancellationToken cancellationToken = default)
+    {
+        return RequestAsync(new SFTPCloseRequest(GetNextRequestId(), handle), cancellationToken);
+    }
+
+    internal async Task<byte[]> ReadAsync(
+        byte[] handle,
+        ulong offset,
+        uint length,
+        CancellationToken cancellationToken = default
+    )
+    {
+        SFTPResponse response = await RequestAsync(
+                new SFTPReadRequest(GetNextRequestId(), handle, offset, length),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        SFTPData data = CheckResponseTypeAndStatus<SFTPData>(response);
+        return data.Data;
+    }
+
+    /// <exception cref="HandlerException"></exception>
+    /// <exception cref="InvalidDataException"></exception>
+    internal async Task WriteAsync(
+        byte[] handle,
+        ulong offset,
+        byte[] data,
+        CancellationToken cancellationToken = default
+    )
+    {
+        SFTPResponse response = await RequestAsync(
+                new SFTPWriteRequest(GetNextRequestId(), handle, offset, data),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        CheckResponseTypeAndStatus<SFTPStatus>(response);
+    }
+    #endregion
 
     private uint GetNextRequestId()
     {
@@ -191,8 +230,7 @@ public class SFTPClient : IDisposable
         TraceSource.TraceEvent(
             TraceEventType.Verbose,
             TraceEventIds.SFTPClient_SendingRequest,
-            "Request #{0}: {1}",
-            request.RequestId,
+            "SEND: {0}",
             request
         );
         TaskCompletionSource<SFTPResponse> taskCompletionSource = new();
@@ -244,5 +282,24 @@ public class SFTPClient : IDisposable
 
         writerSempahore.Release(); // Allow requests to write
         return Math.Min(serverVersion, CLIENT_SFTP_PROTOCOL_VERSION);
+    }
+
+    /// <exception cref="HandlerException"></exception>
+    /// <exception cref="InvalidDataException"></exception>
+    private static T CheckResponseTypeAndStatus<T>(SFTPResponse response)
+        where T : SFTPResponse
+    {
+        if (
+            response is SFTPStatus status
+            && (typeof(T) != typeof(SFTPStatus) || status.Status != Status.Ok)
+        )
+        {
+            throw new HandlerException(status.Status);
+        }
+        if (response is not T castedResponse)
+        {
+            throw new InvalidDataException($"Unexpected response type {response.ResponseType}");
+        }
+        return castedResponse;
     }
 }
