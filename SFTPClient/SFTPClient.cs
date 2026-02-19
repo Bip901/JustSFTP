@@ -125,9 +125,9 @@ public class SFTPClient : IDisposable
                 taskCompletionSource.TrySetResult(response);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            Dispose();
+            Dispose(ex);
             throw;
         }
     }
