@@ -9,7 +9,7 @@ namespace JustSFTP.Protocol.Models.Responses;
 /// <summary>
 /// SSH_FXP_HANDLE
 /// </summary>
-public record SFTPHandleResponse(uint RequestId, string Handle) : SFTPResponse(RequestId)
+public record SFTPHandleResponse(uint RequestId, byte[] Handle) : SFTPResponse(RequestId)
 {
     /// <inheritdoc/>
     public override ResponseType ResponseType => ResponseType.Handle;
@@ -21,6 +21,7 @@ public record SFTPHandleResponse(uint RequestId, string Handle) : SFTPResponse(R
     )
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
+        await writer.Write(Handle.Length, cancellationToken).ConfigureAwait(false);
         await writer.Write(Handle, cancellationToken).ConfigureAwait(false);
     }
 
@@ -35,7 +36,7 @@ public record SFTPHandleResponse(uint RequestId, string Handle) : SFTPResponse(R
     )
     {
         uint requestId = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
-        string handle = await reader.ReadString(cancellationToken).ConfigureAwait(false);
+        byte[] handle = await reader.ReadBinary(cancellationToken).ConfigureAwait(false);
         return new SFTPHandleResponse(requestId, handle);
     }
 }

@@ -63,12 +63,19 @@ public class SFTPClient : IDisposable
     }
 
     /// <inheritdoc/>
+#pragma warning disable CA1816 // Dispose methods should call SuppressFinalize
     public void Dispose()
     {
+        Dispose(null);
+    }
+
+    private void Dispose(Exception? reason)
+    {
         GC.SuppressFinalize(this);
+#pragma warning restore CA1816 // Dispose methods should call SuppressFinalize
         ((IDisposable)writer).Dispose();
         writerSempahore.Dispose();
-        ObjectDisposedException exception = new(nameof(SFTPClient));
+        ObjectDisposedException exception = new(nameof(SFTPClient), reason);
         foreach (
             TaskCompletionSource<SFTPResponse> taskCompletionSource in requestsAwaitingResponse.Values
         )
@@ -142,7 +149,7 @@ public class SFTPClient : IDisposable
     /// <exception cref="InvalidDataException"/>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public async Task<SFTPHandle> OpenFileAsync(
+    public async Task<byte[]> OpenFileAsync(
         string Path,
         AccessFlags Flags,
         SFTPAttributes Attributes
@@ -162,7 +169,7 @@ public class SFTPClient : IDisposable
                 $"Unexpected response type {response.GetType().FullName}"
             );
         }
-        return new SFTPHandle(handleResponse.Handle);
+        return handleResponse.Handle;
     }
 
     private uint GetNextRequestId()

@@ -8,7 +8,7 @@ namespace JustSFTP.Protocol.Models.Responses;
 /// <summary>
 /// SSH_FXP_READDIR
 /// </summary>
-public record SFTPReadDirRequest(uint RequestId, string Handle) : SFTPRequest(RequestId)
+public record SFTPReadDirRequest(uint RequestId, byte[] Handle) : SFTPRequest(RequestId)
 {
     /// <inheritdoc/>
     public override RequestType RequestType => RequestType.ReadDir;
@@ -20,6 +20,7 @@ public record SFTPReadDirRequest(uint RequestId, string Handle) : SFTPRequest(Re
     )
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
+        await writer.Write(Handle.Length, cancellationToken).ConfigureAwait(false);
         await writer.Write(Handle, cancellationToken).ConfigureAwait(false);
     }
 }

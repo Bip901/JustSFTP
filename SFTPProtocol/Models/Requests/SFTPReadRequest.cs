@@ -8,7 +8,7 @@ namespace JustSFTP.Protocol.Models.Responses;
 /// <summary>
 /// SSH_FXP_READ
 /// </summary>
-public record SFTPReadRequest(uint RequestId, string Handle, ulong Offset, uint Length)
+public record SFTPReadRequest(uint RequestId, byte[] Handle, ulong Offset, uint Length)
     : SFTPRequest(RequestId)
 {
     /// <inheritdoc/>
@@ -21,6 +21,7 @@ public record SFTPReadRequest(uint RequestId, string Handle, ulong Offset, uint 
     )
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
+        await writer.Write(Handle.Length, cancellationToken).ConfigureAwait(false);
         await writer.Write(Handle, cancellationToken).ConfigureAwait(false);
         await writer.Write(Offset, cancellationToken).ConfigureAwait(false);
         await writer.Write(Length, cancellationToken).ConfigureAwait(false);

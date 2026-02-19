@@ -16,7 +16,7 @@ public interface ISFTPHandler
         CancellationToken cancellationToken = default
     
 );
-    Task<SFTPHandle> Open(
+    Task<byte[]> Open(
         SFTPPath path,
         FileMode fileMode,
         FileAccess fileAccess,
@@ -24,19 +24,19 @@ public interface ISFTPHandler
         CancellationToken cancellationToken = default
     );
 
-    Task Close(SFTPHandle handle, CancellationToken cancellationToken = default);
+    Task Close(byte[] handle, CancellationToken cancellationToken = default);
 
     /// <exception cref="HandlerException"/>
     /// <exception cref="Exception"/>
     Task<byte[]> Read(
-        SFTPHandle handle,
+        byte[] handle,
         ulong offset,
         uint length,
         CancellationToken cancellationToken = default
     );
 
     Task Write(
-        SFTPHandle handle,
+        byte[] handle,
         ulong offset,
         byte[] data,
         CancellationToken cancellationToken = default
@@ -44,7 +44,7 @@ public interface ISFTPHandler
 
     Task<SFTPAttributes> LStat(SFTPPath path, CancellationToken cancellationToken = default);
 
-    Task<SFTPAttributes> FStat(SFTPHandle handle, CancellationToken cancellationToken = default);
+    Task<SFTPAttributes> FStat(byte[] handle, CancellationToken cancellationToken = default);
 
     Task SetStat(
         SFTPPath path,
@@ -53,15 +53,15 @@ public interface ISFTPHandler
     );
 
     Task FSetStat(
-        SFTPHandle handle,
+        byte[] handle,
         SFTPAttributes attributes,
         CancellationToken cancellationToken = default
     );
 
-    Task<SFTPHandle> OpenDir(SFTPPath path, CancellationToken cancellationToken = default);
+    Task<byte[]> OpenDir(SFTPPath path, CancellationToken cancellationToken = default);
 
     Task<IEnumerable<SFTPName>> ReadDir(
-        SFTPHandle handle,
+        byte[] handle,
         CancellationToken cancellationToken = default
     );
 

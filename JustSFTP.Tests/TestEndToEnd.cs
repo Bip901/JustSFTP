@@ -22,7 +22,7 @@ public class TestEndToEnd
         );
         CancellationTokenSource clientCancel = new();
         Task clientTask = Task.Run(() => client.RunAsync(clientCancel.Token));
-        SFTPHandle handle = await client.OpenFileAsync(
+        byte[] handle = await client.OpenFileAsync(
             "/example.txt",
             Protocol.Enums.AccessFlags.Read,
             SFTPAttributes.DummyFile

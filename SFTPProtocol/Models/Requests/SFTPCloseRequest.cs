@@ -8,7 +8,7 @@ namespace JustSFTP.Protocol.Models.Responses;
 /// <summary>
 /// SSH_FXP_CLOSE
 /// </summary>
-public record SFTPCloseRequest(uint RequestId, string Handle) : SFTPRequest(RequestId)
+public record SFTPCloseRequest(uint RequestId, byte[] Handle) : SFTPRequest(RequestId)
 {
     /// <inheritdoc/>
     public override RequestType RequestType => RequestType.Close;
@@ -20,6 +20,7 @@ public record SFTPCloseRequest(uint RequestId, string Handle) : SFTPRequest(Requ
     )
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
+        await writer.Write(Handle.Length, cancellationToken).ConfigureAwait(false);
         await writer.Write(Handle, cancellationToken).ConfigureAwait(false);
     }
 }
