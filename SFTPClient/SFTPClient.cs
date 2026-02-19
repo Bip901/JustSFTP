@@ -193,7 +193,7 @@ public class SFTPClient : IDisposable
             TraceEventIds.SFTPClient_SendingRequest,
             "Request #{0}: {1}",
             request.RequestId,
-            request.RequestType
+            request
         );
         TaskCompletionSource<SFTPResponse> taskCompletionSource = new();
         await writerSempahore.WaitAsync(cancellationToken);
