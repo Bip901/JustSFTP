@@ -13,7 +13,7 @@ internal class SFTPFileStream : Stream
 
     public override bool CanWrite => canWrite;
 
-    public override bool CanSeek => true;
+    public override bool CanSeek => false;
 
     public override long Length => throw new NotSupportedException();
 
