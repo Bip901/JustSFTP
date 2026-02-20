@@ -12,4 +12,9 @@ public record SFTPName(string Name, string LongName, SFTPAttributes Attributes)
 
     public static SFTPName FromString(string Name, bool IsDirectory = false) =>
         new(Name, IsDirectory ? SFTPAttributes.DummyDirectory : SFTPAttributes.DummyFile);
+
+    public override string ToString()
+    {
+        return LongName;
+    }
 }

@@ -53,4 +53,9 @@ public record SFTPNameResponse(uint RequestId, IReadOnlyCollection<SFTPName> Nam
 
         return new SFTPNameResponse(requestId, names);
     }
+
+    public override string ToString()
+    {
+        return $"{nameof(SFTPNameResponse)} {{ RequestId = {RequestId}, Names = [\n{string.Join('\n', Names)}\n] }}";
+    }
 }
