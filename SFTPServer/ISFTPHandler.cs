@@ -60,7 +60,7 @@ public interface ISFTPHandler
 
     Task<byte[]> OpenDir(SFTPPath path, CancellationToken cancellationToken = default);
 
-    Task<IEnumerable<SFTPName>> ReadDir(
+    Task<IEnumerator<SFTPName>> ReadDir(
         byte[] handle,
         CancellationToken cancellationToken = default
     );

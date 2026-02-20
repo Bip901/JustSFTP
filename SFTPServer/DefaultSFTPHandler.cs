@@ -14,16 +14,11 @@ namespace JustSFTP.Server;
 /// <summary>
 /// Serves a subtree of the regular filesystem over SFTP.
 /// </summary>
-public class DefaultSFTPHandler : ISFTPHandler, IDisposable
+public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
 {
-    private readonly Dictionary<byte[], SFTPPath> _filehandles = new();
-    private readonly Dictionary<byte[], Stream> _streamhandles = new();
-    private readonly SFTPPath _root;
-
     private static readonly Uri _virtualroot = new("virt://", UriKind.Absolute);
-
-    public DefaultSFTPHandler(SFTPPath root) =>
-        _root = root ?? throw new ArgumentNullException(nameof(root));
+    private readonly SFTPHandleCollection openHandles = new();
+    private readonly SFTPPath root = root;
 
     public virtual Task<SFTPExtensions> Init(
         uint clientVersion,
@@ -39,25 +34,22 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        var handle = CreateHandle();
-        _streamhandles.Add(
-            handle,
-            File.Open(GetPhysicalPath(path), fileMode, fileAccess, FileShare.ReadWrite)
+        if (openHandles.IsFull)
+        {
+            throw new HandlerException(Status.Failure);
+        }
+        byte[] handle = openHandles.Add(
+            new SFTPHandleCollection.OpenSFTPFile(
+                path,
+                File.Open(GetPhysicalPath(path), fileMode, fileAccess, FileShare.ReadWrite)
+            )
         );
-        _filehandles.Add(handle, path);
         return Task.FromResult(handle);
     }
 
     public virtual Task Close(byte[] handle, CancellationToken cancellationToken = default)
     {
-        _filehandles.Remove(handle);
-
-        if (_streamhandles.TryGetValue(handle, out Stream? stream))
-        {
-            stream.Close();
-            stream.Dispose();
-        }
-        _streamhandles.Remove(handle);
+        openHandles.Remove(handle);
         return Task.CompletedTask;
     }
 
@@ -69,7 +61,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        Stream stream = RequireStreamHandle(handle);
+        Stream stream = openHandles.RequireFileStream(handle);
         if (offset >= (ulong)stream.Length)
         {
             throw new HandlerException(Status.EndOfFile);
@@ -87,7 +79,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        Stream stream = RequireStreamHandle(handle);
+        Stream stream = openHandles.RequireFileStream(handle);
         if (stream.Position != (long)offset)
         {
             stream.Seek((long)offset, SeekOrigin.Begin);
@@ -101,15 +93,15 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     ) =>
         TryGetFSObject(path, out var fso)
             ? Task.FromResult(SFTPAttributes.FromFileSystemInfo(fso))
-            : throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
+            : throw new HandlerException(Status.NoSuchFile);
 
     public virtual Task<SFTPAttributes> FStat(
         byte[] handle,
         CancellationToken cancellationToken = default
     ) =>
-        TryGetFileHandle(handle, out var path)
-            ? Stat(path, cancellationToken)
-            : throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
+        openHandles.TryGet(handle, out var openFile)
+            ? Stat(openFile.Path, cancellationToken)
+            : throw new HandlerException(Status.NoSuchFile);
 
     public virtual Task SetStat(
         SFTPPath path,
@@ -122,31 +114,42 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         SFTPAttributes attributes,
         CancellationToken cancellationToken = default
     ) =>
-        TryGetFileHandle(handle, out var path)
-            ? SetStat(path, attributes, cancellationToken)
-            : throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
+        openHandles.TryGet(handle, out var openFile)
+            ? SetStat(openFile.Path, attributes, cancellationToken)
+            : throw new HandlerException(Status.NoSuchFile);
 
     public virtual Task<byte[]> OpenDir(
         SFTPPath path,
         CancellationToken cancellationToken = default
     )
     {
-        var handle = CreateHandle();
-        _filehandles.Add(handle, path);
-        return Task.FromResult(handle);
+        return Task.FromResult(
+            openHandles.Add(
+                new SFTPHandleCollection.OpenSFTPDirectory(
+                    path,
+                    self =>
+                        new DirectoryInfo(GetPhysicalPath(self.Path))
+                            .GetFileSystemInfos()
+                            .Select(fso => SFTPName.FromFileSystemInfo(fso))
+                )
+            )
+        );
     }
 
-    public virtual Task<IEnumerable<SFTPName>> ReadDir(
+    public virtual Task<IEnumerator<SFTPName>> ReadDir(
         byte[] handle,
         CancellationToken cancellationToken = default
-    ) =>
-        TryGetFileHandle(handle, out var path)
-            ? Task.FromResult(
-                new DirectoryInfo(GetPhysicalPath(path))
-                    .GetFileSystemInfos()
-                    .Select(fso => SFTPName.FromFileSystemInfo(fso))
-            )
-            : throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
+    )
+    {
+        if (
+            !openHandles.TryGet(handle, out var openFile)
+            || openFile is not SFTPHandleCollection.OpenSFTPDirectory directory
+        )
+        {
+            throw new HandlerException(Status.NoSuchFile);
+        }
+        return Task.FromResult((IEnumerator<SFTPName>)directory);
+    }
 
     public virtual Task Remove(SFTPPath path, CancellationToken cancellationToken = default)
     {
@@ -155,7 +158,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
             File.Delete(fsObject.FullName);
             return Task.CompletedTask;
         }
-        throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
+        throw new HandlerException(Status.NoSuchFile);
     }
 
     public virtual Task MakeDir(
@@ -175,7 +178,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
             Directory.Delete(fsObject.FullName);
             return Task.CompletedTask;
         }
-        throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
+        throw new HandlerException(Status.NoSuchFile);
     }
 
     public virtual Task<SFTPPath> RealPath(
@@ -199,7 +202,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
             File.Move(fsOldObject.FullName, GetPhysicalPath(newPath));
             return Task.CompletedTask;
         }
-        throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
+        throw new HandlerException(Status.NoSuchFile);
     }
 
 #if NET6_0_OR_GREATER
@@ -212,7 +215,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         {
             return Task.FromResult(SFTPName.FromString(fsObject.LinkTarget));
         }
-        throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
+        throw new HandlerException(Status.NoSuchFile);
     }
 
     public virtual Task SymLink(
@@ -235,12 +238,12 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
             }
             return Task.CompletedTask;
         }
-        throw new HandlerException(Protocol.Enums.Status.NoSuchFile);
+        throw new HandlerException(Status.NoSuchFile);
     }
 #endif
 
     public virtual string GetPhysicalPath(SFTPPath path) =>
-        Path.Join(_root.Path, GetVirtualPath(path));
+        Path.Join(root.Path, GetVirtualPath(path));
 
     public virtual string GetVirtualPath(SFTPPath path) =>
         new Uri(_virtualroot, path.Path).LocalPath;
@@ -287,28 +290,9 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         return false;
     }
 
-    private static byte[] CreateHandle() => Guid.NewGuid().ToByteArray();
-
-    protected bool TryGetFileHandle(byte[] key, [NotNullWhen(true)] out SFTPPath? path) =>
-        _filehandles.TryGetValue(key, out path);
-
-    private Stream RequireStreamHandle(byte[] handle)
-    {
-        if (!_streamhandles.TryGetValue(handle, out Stream? stream))
-        {
-            throw new HandlerException(Status.NoSuchFile);
-        }
-        return stream;
-    }
-
     /// <inheritdoc/>
     public void Dispose()
     {
-        foreach (Stream handle in _streamhandles.Values)
-        {
-            handle.Dispose();
-        }
-        _streamhandles.Clear();
-        _filehandles.Clear();
+        openHandles.Dispose();
     }
 }
