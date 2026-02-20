@@ -169,6 +169,43 @@ public class SFTPClient : IDisposable
             Flags.HasFlag(AccessFlags.Write)
         );
     }
+
+    /// <summary>
+    /// Yields the immediate children of the given directory.
+    /// </summary>
+    /// <exception cref="HandlerException"/>
+    public async IAsyncEnumerable<SFTPName> IterDirAsync(string Path)
+    {
+        SFTPResponse openResponse = await RequestAsync(
+                new SFTPOpenDirRequest(GetNextRequestId(), Path)
+            )
+            .ConfigureAwait(false);
+        byte[] handle = CheckResponseTypeAndStatus<SFTPHandleResponse>(openResponse).Handle;
+        while (true)
+        {
+            SFTPNameResponse readDirResponse;
+            try
+            {
+                SFTPResponse readDirResponseRaw = await RequestAsync(
+                    new SFTPReadDirRequest(GetNextRequestId(), handle)
+                );
+                readDirResponse = CheckResponseTypeAndStatus<SFTPNameResponse>(readDirResponseRaw);
+            }
+            catch (Exception ex)
+            {
+                await CloseFileAsync(handle).ConfigureAwait(false);
+                if (ex is HandlerException handlerException && handlerException.Status == Status.EndOfFile)
+                {
+                    break;
+                }
+                throw;
+            }
+            foreach (SFTPName name in readDirResponse.Names)
+            {
+                yield return name;
+            }
+        }
+    }
     #endregion
 
     #region Low-level requests

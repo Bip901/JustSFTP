@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -10,6 +11,8 @@ namespace JustSFTP.Tests;
 
 public class TestEndToEnd
 {
+    private static readonly string[] expectedDirectoryListing = ["file1.txt", "file2.txt"];
+
     [Fact]
     public async Task TestFullSession()
     {
@@ -36,6 +39,12 @@ public class TestEndToEnd
             string fileContents = await reader.ReadToEndAsync();
             Assert.Equal("This is an example file for testing.\n", fileContents);
         }
+        HashSet<string> names = [];
+        await foreach (SFTPName child in client.IterDirAsync("/test-dir"))
+        {
+            names.Add(child.Name);
+        }
+        Assert.Equivalent(expectedDirectoryListing, names);
         clientCancel.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(() => clientTask);
     }
