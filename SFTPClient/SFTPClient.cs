@@ -174,6 +174,9 @@ public class SFTPClient : IDisposable
     /// Yields the immediate children of the given directory.
     /// </summary>
     /// <exception cref="HandlerException"/>
+    /// <exception cref="InvalidDataException"/>
+    /// <exception cref="OperationCanceledException"/>
+    /// <exception cref="ObjectDisposedException"/>
     public async IAsyncEnumerable<SFTPName> IterDirAsync(string Path)
     {
         SFTPResponse openResponse = await RequestAsync(
@@ -194,7 +197,10 @@ public class SFTPClient : IDisposable
             catch (Exception ex)
             {
                 await CloseFileAsync(handle).ConfigureAwait(false);
-                if (ex is HandlerException handlerException && handlerException.Status == Status.EndOfFile)
+                if (
+                    ex is HandlerException handlerException
+                    && handlerException.Status == Status.EndOfFile
+                )
                 {
                     break;
                 }
@@ -205,6 +211,79 @@ public class SFTPClient : IDisposable
                 yield return name;
             }
         }
+    }
+
+    /// <summary>
+    /// Creates a directory at the specified remote path with the given attributes.
+    /// </summary>
+    /// <exception cref="HandlerException"/>
+    /// <exception cref="InvalidDataException"/>
+    /// <exception cref="OperationCanceledException"/>
+    /// <exception cref="ObjectDisposedException"/>
+    public async Task MakeDirAsync(
+        string Path,
+        SFTPAttributes Attributes,
+        CancellationToken cancellationToken = default
+    )
+    {
+        SFTPResponse response = await RequestAsync(
+                new SFTPMakeDirRequest(GetNextRequestId(), Path, Attributes),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        CheckResponseTypeAndStatus<SFTPStatus>(response);
+    }
+
+    /// <summary>
+    /// Removes the (empty) directory at the given remote path.
+    /// </summary>
+    /// <exception cref="HandlerException"/>
+    /// <exception cref="InvalidDataException"/>
+    /// <exception cref="OperationCanceledException"/>
+    /// <exception cref="ObjectDisposedException"/>
+    public async Task RemoveDirAsync(string Path, CancellationToken cancellationToken = default)
+    {
+        SFTPResponse response = await RequestAsync(
+                new SFTPRemoveDirRequest(GetNextRequestId(), Path),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        CheckResponseTypeAndStatus<SFTPStatus>(response);
+    }
+
+    /// <summary>
+    /// Removes the file at the given remote path.
+    /// </summary>
+    /// <exception cref="HandlerException"/>
+    /// <exception cref="InvalidDataException"/>
+    /// <exception cref="OperationCanceledException"/>
+    /// <exception cref="ObjectDisposedException"/>
+    public async Task RemoveAsync(string Path, CancellationToken cancellationToken = default)
+    {
+        SFTPResponse response = await RequestAsync(
+                new SFTPRemoveRequest(GetNextRequestId(), Path),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        CheckResponseTypeAndStatus<SFTPStatus>(response);
+    }
+
+    /// <summary>
+    /// Renames a file or directory from <paramref name="OldPath"/> to <paramref name="NewPath"/>.
+    /// </summary>
+    /// <exception cref="HandlerException"/>
+    public async Task RenameAsync(
+        string OldPath,
+        string NewPath,
+        CancellationToken cancellationToken = default
+    )
+    {
+        SFTPResponse response = await RequestAsync(
+                new SFTPRenameRequest(GetNextRequestId(), OldPath, NewPath),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        CheckResponseTypeAndStatus<SFTPStatus>(response);
     }
     #endregion
 
