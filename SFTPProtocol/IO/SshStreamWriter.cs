@@ -15,19 +15,23 @@ namespace JustSFTP.Protocol.IO;
 public class SshStreamWriter : IDisposable
 {
     private static readonly Encoding SFTPStringEncoding = new UTF8Encoding(false);
+
     private readonly Stream innerStream;
     private readonly MemoryStream memoryStream;
+    private readonly bool ownsStream;
 
     /// <summary>
     /// Creates a new <see cref="SshStreamWriter"/> that writes to the specified stream.
     /// </summary>
     /// <param name="stream">The underlying stream.</param>
     /// <param name="bufferSize">The buffer size. Sent messages can't be longer than this number.</param>
+    /// <param name="ownsStream">Whether to dispose the inner stream when disposing this.</param>
     /// <exception cref="ArgumentNullException"/>
-    public SshStreamWriter(Stream stream, int bufferSize)
+    public SshStreamWriter(Stream stream, int bufferSize, bool ownsStream = false)
     {
         innerStream = stream ?? throw new ArgumentNullException(nameof(stream));
         memoryStream = new MemoryStream(bufferSize);
+        this.ownsStream = ownsStream;
     }
 
     public Task Write(RequestType requestType, CancellationToken cancellationToken = default) =>
@@ -150,5 +154,9 @@ public class SshStreamWriter : IDisposable
     {
         GC.SuppressFinalize(this);
         ((IDisposable)memoryStream).Dispose();
+        if (ownsStream)
+        {
+            innerStream.Dispose();
+        }
     }
 }

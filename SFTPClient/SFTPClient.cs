@@ -33,6 +33,7 @@ public class SFTPClient : IDisposable
 
     private readonly SshStreamReader reader;
     private readonly SshStreamWriter writer;
+    private readonly bool ownsStreams;
     private uint lastRequestId = 0;
 
     private readonly SemaphoreSlim writerSempahore;
@@ -42,24 +43,32 @@ public class SFTPClient : IDisposable
     > requestsAwaitingResponse;
 
     /// <summary>
-    /// Creates a new <see cref="SFTPClient"/> over the given streams. The client is not responsible for closing the streams.
+    /// Creates a new <see cref="SFTPClient"/> over the given streams.
     /// </summary>
+    /// <param name="inStream">The stream to read from.</param>
+    /// <param name="outStream">The stream to write to.</param>
+    /// <param name="writeBufferSize">The write buffer size in bytes. Longer messages will not be able to be written.</param>
+    /// <param name="traceSource">Optionally, a trace source to log to. Defaults to a silent trace source. See also: <seealso cref="TraceEventIds"/>.</param>
+    /// <param name="ownsStreams">Whether to dispose the inStream and outStream when this client is disposed.</param>
     /// <exception cref="ArgumentNullException"></exception>
     public SFTPClient(
         Stream inStream,
         Stream outStream,
         int writeBufferSize = 1048576,
-        TraceSource? traceSource = null
+        TraceSource? traceSource = null,
+        bool ownsStreams = false
     )
     {
         reader = new SshStreamReader(inStream ?? throw new ArgumentNullException(nameof(inStream)));
         writer = new SshStreamWriter(
             outStream ?? throw new ArgumentNullException(nameof(outStream)),
-            writeBufferSize
+            writeBufferSize,
+            ownsStreams
         );
         writerSempahore = new(0, 1);
         requestsAwaitingResponse = [];
         TraceSource = traceSource ?? new TraceSource(nameof(SFTPClient), SourceLevels.Off);
+        this.ownsStreams = ownsStreams;
     }
 
     /// <inheritdoc/>
@@ -74,6 +83,10 @@ public class SFTPClient : IDisposable
         GC.SuppressFinalize(this);
 #pragma warning restore CA1816 // Dispose methods should call SuppressFinalize
         ((IDisposable)writer).Dispose();
+        if (ownsStreams)
+        {
+            reader.Stream.Dispose();
+        }
         writerSempahore.Dispose();
         ObjectDisposedException exception = new(nameof(SFTPClient), reason);
         foreach (
