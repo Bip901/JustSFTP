@@ -38,13 +38,25 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         {
             throw new HandlerException(Status.Failure);
         }
-        byte[] handle = openHandles.Add(
-            new SFTPHandleCollection.OpenSFTPFile(
-                path,
-                File.Open(GetPhysicalPath(path), fileMode, fileAccess, FileShare.ReadWrite)
-            )
-        );
-        return Task.FromResult(handle);
+        string physicalPath = GetPhysicalPath(path);
+        if (!File.Exists(physicalPath))
+        {
+            throw new HandlerException(Status.NoSuchFile);
+        }
+        try
+        {
+            byte[] handle = openHandles.Add(
+                new SFTPHandleCollection.OpenSFTPFile(
+                    path,
+                    File.Open(physicalPath, fileMode, fileAccess, FileShare.ReadWrite)
+                )
+            );
+            return Task.FromResult(handle);
+        }
+        catch (FileNotFoundException ex)
+        {
+            throw new HandlerException(Status.NoSuchFile, null, ex);
+        }
     }
 
     public virtual Task Close(byte[] handle, CancellationToken cancellationToken = default)
@@ -123,14 +135,20 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         CancellationToken cancellationToken = default
     )
     {
+        FileSystemInfo[] fileSystemInfos;
+        try
+        {
+            fileSystemInfos = new DirectoryInfo(GetPhysicalPath(path)).GetFileSystemInfos();
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            throw new HandlerException(Status.NoSuchFile, null, ex);
+        }
         return Task.FromResult(
             openHandles.Add(
                 new SFTPHandleCollection.OpenSFTPDirectory(
                     path,
-                    self =>
-                        new DirectoryInfo(GetPhysicalPath(self.Path))
-                            .GetFileSystemInfos()
-                            .Select(fso => SFTPName.FromFileSystemInfo(fso))
+                    self => fileSystemInfos.Select(fso => SFTPName.FromFileSystemInfo(fso))
                 )
             )
         );
@@ -141,14 +159,7 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        if (
-            !openHandles.TryGet(handle, out var openFile)
-            || openFile is not SFTPHandleCollection.OpenSFTPDirectory directory
-        )
-        {
-            throw new HandlerException(Status.NoSuchFile);
-        }
-        return Task.FromResult((IEnumerator<SFTPName>)directory);
+        return Task.FromResult((IEnumerator<SFTPName>)openHandles.RequireDirectory(handle));
     }
 
     public virtual Task Remove(SFTPPath path, CancellationToken cancellationToken = default)

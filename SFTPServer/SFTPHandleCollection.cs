@@ -33,9 +33,10 @@ public class SFTPHandleCollection : IDisposable
         }
     }
 
-    public record OpenSFTPDirectory(SFTPPath Path, Func<OpenSFTPDirectory, IEnumerable<SFTPName>> GetChildren)
-        : OpenSFTPFileOrDirectory(Path),
-            IEnumerator<SFTPName>
+    public record OpenSFTPDirectory(
+        SFTPPath Path,
+        Func<OpenSFTPDirectory, IEnumerable<SFTPName>> GetChildren
+    ) : OpenSFTPFileOrDirectory(Path), IEnumerator<SFTPName>
     {
         /// <exception cref="InvalidOperationException"/>
         public SFTPName Current => inner?.Current ?? throw new InvalidOperationException();
@@ -141,6 +142,25 @@ public class SFTPHandleCollection : IDisposable
             throw new HandlerException(Status.NoSuchFile);
         }
         return file.Stream;
+    }
+
+    /// <summary>
+    /// Throws an <see cref="HandlerException"/> with <see cref="Status.NoSuchFile"/> if the given handle does not correspond to an open directory.
+    /// </summary>
+    /// <returns>The matching open directory.</returns>
+    /// <exception cref="HandlerException"/>
+    public OpenSFTPDirectory RequireDirectory(byte[] handle)
+    {
+        if (
+            !openFiles.TryGetValue(
+                new SFTPHandle(handle),
+                out OpenSFTPFileOrDirectory? fileOrDirectory
+            ) || fileOrDirectory is not OpenSFTPDirectory directory
+        )
+        {
+            throw new HandlerException(Status.NoSuchFile);
+        }
+        return directory;
     }
 
     /// <summary>
