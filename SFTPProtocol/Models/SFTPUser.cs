@@ -13,4 +13,9 @@ public record SFTPUser : SFTPIdentifier
     /// <param name="uid">The user id.</param>
     public SFTPUser(uint uid)
         : base(uid) { }
+
+    public override string ToString()
+    {
+        return base.ToString();
+    }
 }

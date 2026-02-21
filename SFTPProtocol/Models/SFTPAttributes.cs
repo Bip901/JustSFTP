@@ -135,10 +135,10 @@ public record SFTPAttributes
     public string GetLongFileName(string name)
     {
         const int HardLinksAmount = 1;
-        string userName = User == null ? "???" : User.ToString();
-        string groupName = Group == null ? "???" : Group.ToString();
+        string userName = User == null ? "???" : User.Name;
+        string groupName = Group == null ? "???" : Group.Name;
         string lastModifiedTime = (LastModifiedTime ?? DateTimeOffset.UnixEpoch).ToString(
-            "12:MMM dd HH:mm",
+            "MMM dd HH:mm",
             CultureInfo.InvariantCulture
         );
         string permissionsString;

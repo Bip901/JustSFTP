@@ -9,8 +9,5 @@ public abstract record SFTPIdentifier(uint Id)
     /// <summary>
     /// Returns the name of the user or group.
     /// </summary>
-    public override string ToString()
-    {
-        return Id == 0 ? "root" : $"user_{Id}";
-    }
+    public string Name => Id == 0 ? "root" : $"user_{Id}";
 }
