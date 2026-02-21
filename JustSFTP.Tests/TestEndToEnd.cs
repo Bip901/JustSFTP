@@ -52,8 +52,15 @@ public class TestEndToEnd
         Assert.Equivalent(expectedDirectoryListing, names);
 
         // Test Stat
-        SFTPAttributes exampleAttributes = await client.StatAsync("/example.txt");
-        Assert.Equal((ulong)exampleFileContents.Length, exampleAttributes.FileSize);
+        // Convert to seconds accuracy because that's the accuracy preserved in SFTP
+        DateTimeOffset utcNow = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        await client.SetStatAsync(
+            "/example.txt",
+            new SFTPAttributes() { LastModifiedTime = utcNow, LastAccessedTime = utcNow }
+        );
+        SFTPAttributes serverAttributes = await client.StatAsync("/example.txt");
+        Assert.Equal((ulong)exampleFileContents.Length, serverAttributes.FileSize);
+        Assert.Equal(utcNow, serverAttributes.LastModifiedTime);
 
         clientCancel.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(() => clientTask);

@@ -337,6 +337,27 @@ public class SFTPClient : IDisposable
             CheckResponseTypeAndStatus<SFTPAttributesResponse>(response);
         return attributesResponse.Attrs;
     }
+
+    /// <summary>
+    /// Sets some or all of the attributes of a file or directory.
+    /// </summary>
+    /// <exception cref="HandlerException"/>
+    /// <exception cref="InvalidDataException"/>
+    /// <exception cref="OperationCanceledException"/>
+    /// <exception cref="ObjectDisposedException"/>
+    public async Task SetStatAsync(
+        string path,
+        SFTPAttributes attributes,
+        CancellationToken cancellationToken = default
+    )
+    {
+        SFTPResponse response = await RequestAsync(
+                new SFTPSetStatRequest(GetNextRequestId(), path, attributes),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        CheckResponseTypeAndStatus<SFTPStatus>(response);
+    }
     #endregion
 
     #region Low-level requests
