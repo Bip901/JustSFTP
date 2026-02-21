@@ -13,26 +13,32 @@ public enum AccessFlags : uint
     /// SSH_FXF_READ
     /// </summary>
     Read = 0x01,
+
     /// <summary>
     /// SSH_FXF_WRITE
     /// </summary>
     Write = 0x02,
+
     /// <summary>
     /// SSH_FXF_APPEND
     /// </summary>
     Append = 0x04,
+
     /// <summary>
     /// SSH_FXF_CREAT
     /// </summary>
     Create = 0x08,
+
     /// <summary>
     /// SSH_FXF_TRUNC
     /// </summary>
     Truncate = 0x10,
+
     /// <summary>
     /// SSH_FXF_EXCL
     /// </summary>
     Exclusive = 0x20,
+
     /// <summary>
     /// SSH_FXF_TEXT
     /// </summary>
@@ -45,32 +51,73 @@ public enum AccessFlags : uint
 public static class AccessFlagsExtensionMethods
 {
     /// <summary>
+    /// Returns the <see cref="AccessFlags"/> flags that best represent the given file mode and access.
+    /// </summary>
+    public static AccessFlags ToAccessFlags(this FileMode fileMode, FileAccess fileAccess)
+    {
+        AccessFlags flags = 0;
+        if (fileAccess.HasFlag(FileAccess.Read))
+        {
+            flags |= AccessFlags.Read;
+        }
+        if (fileAccess.HasFlag(FileAccess.Write))
+        {
+            flags |= AccessFlags.Write;
+        }
+        switch (fileMode)
+        {
+            case FileMode.CreateNew:
+                flags |= AccessFlags.Create | AccessFlags.Exclusive;
+                break;
+            case FileMode.Create:
+                flags |= AccessFlags.Create | AccessFlags.Truncate;
+                break;
+            case FileMode.Open:
+                break;
+            case FileMode.OpenOrCreate:
+                flags |= AccessFlags.Create;
+                break;
+            case FileMode.Truncate:
+                flags |= AccessFlags.Truncate;
+                break;
+            case FileMode.Append:
+                flags |= AccessFlags.Append;
+                break;
+            default:
+                throw new NotSupportedException();
+        }
+        return flags;
+    }
+
+    /// <summary>
     /// Returns the <see cref="FileMode"/> flags that best represent the given access flags.
     /// </summary>
     public static FileMode ToFileMode(this AccessFlags flags)
     {
-        FileMode filemode = FileMode.Open;
         if (flags.HasFlag(AccessFlags.Append))
         {
-            filemode = FileMode.Append;
+            return FileMode.Append;
         }
-        else if (flags.HasFlag(AccessFlags.Create))
+        if (flags.HasFlag(AccessFlags.Create))
         {
-            filemode = FileMode.OpenOrCreate;
+            if (flags.HasFlag(AccessFlags.Exclusive))
+            {
+                return FileMode.CreateNew;
+            }
+            else if (flags.HasFlag(AccessFlags.Truncate))
+            {
+                return FileMode.Create;
+            }
+            else
+            {
+                return FileMode.OpenOrCreate;
+            }
         }
         else if (flags.HasFlag(AccessFlags.Truncate))
         {
-            filemode = FileMode.CreateNew;
+            return FileMode.Truncate;
         }
-        else if (flags.HasFlag(AccessFlags.Exclusive))
-        {
-            throw new NotImplementedException();
-        }
-        else if (flags.HasFlag(AccessFlags.Text))
-        {
-            throw new NotImplementedException();
-        }
-        return filemode;
+        return FileMode.Open;
     }
 
     /// <summary>
