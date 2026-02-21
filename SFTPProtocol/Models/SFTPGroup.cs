@@ -3,11 +3,14 @@
 /// <summary>
 /// A unix permission group.
 /// </summary>
-/// <param name="Gid">The group id.</param>
-public record SFTPGroup(uint Gid) : SFTPIdentifier(Gid)
+public record SFTPGroup : SFTPIdentifier
 {
     /// <summary>
     /// The "root" group.
     /// </summary>
     public static readonly SFTPGroup Root = new(0);
+
+    /// <param name="gid">The group id.</param>
+    public SFTPGroup(uint gid)
+        : base(gid) { }
 }
