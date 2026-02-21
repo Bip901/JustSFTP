@@ -12,6 +12,7 @@ namespace JustSFTP.Tests;
 public class TestEndToEnd
 {
     private static readonly string[] expectedDirectoryListing = ["file1.txt", "file2.txt"];
+    private const string exampleFileContents = "This is an example file for testing.\n";
 
     [Fact]
     public async Task TestFullSession()
@@ -26,6 +27,8 @@ public class TestEndToEnd
         );
         CancellationTokenSource clientCancel = new();
         Task clientTask = Task.Run(() => client.RunAsync(clientCancel.Token));
+
+        // Test file reading
         await using (
             Stream fileStream = await client.OpenFileAsync(
                 "/example.txt",
@@ -34,17 +37,24 @@ public class TestEndToEnd
             )
         )
         {
-            Assert.Equal(3u, client.ProtocolVersion);
+            Assert.Equal(3u, client.ProtocolVersion); // Test init handshake. Must happen after at least one request to avoid race with RunAsync
             using StreamReader reader = new(fileStream, leaveOpen: true);
             string fileContents = await reader.ReadToEndAsync();
-            Assert.Equal("This is an example file for testing.\n", fileContents);
+            Assert.Equal(exampleFileContents, fileContents);
         }
+
+        // Test ReadDir
         HashSet<string> names = [];
         await foreach (SFTPName child in client.IterDirAsync("/test-dir"))
         {
             names.Add(child.Name);
         }
         Assert.Equivalent(expectedDirectoryListing, names);
+
+        // Test Stat
+        SFTPAttributes exampleAttributes = await client.StatAsync("/example.txt");
+        Assert.Equal((ulong)exampleFileContents.Length, exampleAttributes.FileSize);
+
         clientCancel.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(() => clientTask);
     }

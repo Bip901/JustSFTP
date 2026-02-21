@@ -311,6 +311,32 @@ public class SFTPClient : IDisposable
             .ConfigureAwait(false);
         CheckResponseTypeAndStatus<SFTPStatus>(response);
     }
+
+    /// <summary>
+    /// Stats a file or directory.
+    /// </summary>
+    /// <param name="path">The remote path of the file or directory to stat.</param>
+    /// <param name="followSymLinks">Whether to stat the target file (true), or the symlink itself (false).</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <exception cref="HandlerException"/>
+    /// <exception cref="InvalidDataException"/>
+    /// <exception cref="OperationCanceledException"/>
+    /// <exception cref="ObjectDisposedException"/>
+    public async Task<SFTPAttributes> StatAsync(
+        string path,
+        bool followSymLinks = true,
+        CancellationToken cancellationToken = default
+    )
+    {
+        SFTPRequest request = followSymLinks
+            ? new SFTPStatRequest(GetNextRequestId(), path)
+            : new SFTPLStatRequest(GetNextRequestId(), path);
+        SFTPResponse response = await RequestAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        SFTPAttributesResponse attributesResponse =
+            CheckResponseTypeAndStatus<SFTPAttributesResponse>(response);
+        return attributesResponse.Attrs;
+    }
     #endregion
 
     #region Low-level requests

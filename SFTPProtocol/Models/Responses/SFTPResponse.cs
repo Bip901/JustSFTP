@@ -24,9 +24,10 @@ public abstract record SFTPResponse(uint RequestId)
     > ResponseTypeToReadAsyncMethod = new()
     {
         { ResponseType.Status, SFTPStatus.ReadAsync },
-        { ResponseType.Name, SFTPNameResponse.ReadAsync },
         { ResponseType.Handle, SFTPHandleResponse.ReadAsync },
         { ResponseType.Data, SFTPData.ReadAsync },
+        { ResponseType.Name, SFTPNameResponse.ReadAsync },
+        { ResponseType.Attributes, SFTPAttributesResponse.ReadAsync },
     };
 
     /// <summary>
