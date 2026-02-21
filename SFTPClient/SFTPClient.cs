@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Protocol;
@@ -190,26 +191,32 @@ public class SFTPClient : IDisposable
     /// <exception cref="InvalidDataException"/>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public async IAsyncEnumerable<SFTPName> IterDirAsync(string Path)
+    public async IAsyncEnumerable<SFTPName> IterDirAsync(
+        string Path,
+        [EnumeratorCancellation] CancellationToken cancellationToken
+    )
     {
         SFTPResponse openResponse = await RequestAsync(
-                new SFTPOpenDirRequest(GetNextRequestId(), Path)
+                new SFTPOpenDirRequest(GetNextRequestId(), Path),
+                cancellationToken
             )
             .ConfigureAwait(false);
         byte[] handle = CheckResponseTypeAndStatus<SFTPHandleResponse>(openResponse).Handle;
         while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             SFTPNameResponse readDirResponse;
             try
             {
                 SFTPResponse readDirResponseRaw = await RequestAsync(
-                    new SFTPReadDirRequest(GetNextRequestId(), handle)
+                    new SFTPReadDirRequest(GetNextRequestId(), handle),
+                    cancellationToken
                 );
                 readDirResponse = CheckResponseTypeAndStatus<SFTPNameResponse>(readDirResponseRaw);
             }
             catch (Exception ex)
             {
-                await CloseFileAsync(handle).ConfigureAwait(false);
+                await CloseFileAsync(handle, cancellationToken).ConfigureAwait(false);
                 if (
                     ex is HandlerException handlerException
                     && handlerException.Status == Status.EndOfFile
