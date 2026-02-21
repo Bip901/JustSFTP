@@ -27,6 +27,6 @@ public record SFTPOpenRequest(
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(Path, cancellationToken);
         await writer.Write((uint)Flags, cancellationToken);
-        await writer.Write(Attributes, PFlags.DEFAULT, cancellationToken);
+        await writer.Write(Attributes, cancellationToken);
     }
 }

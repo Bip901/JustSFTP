@@ -355,7 +355,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
             .RealPath(new SFTPPath(path), cancellationToken)
             .ConfigureAwait(false);
 
-        return new SFTPNameResponse(requestId, [SFTPName.FromString(result.Path)]);
+        return new SFTPNameResponse(requestId, [new SFTPName(result.Path, new SFTPAttributes())]);
     }
 
     private async Task<SFTPResponse> StatHandler(

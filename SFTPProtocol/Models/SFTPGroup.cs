@@ -1,10 +1,13 @@
 ﻿namespace JustSFTP.Protocol.Models;
 
-public record SFTPGroup(uint Id, string Name) : SFTPIdentifier(Id, Name)
+/// <summary>
+/// A unix permission group.
+/// </summary>
+/// <param name="Gid">The group id.</param>
+public record SFTPGroup(uint Gid) : SFTPIdentifier(Gid)
 {
+    /// <summary>
+    /// The "root" group.
+    /// </summary>
     public static readonly SFTPGroup Root = new(0);
-    public static readonly SFTPGroup Nobody = new(65534);
-
-    public SFTPGroup(uint Id)
-        : this(Id, LookupId(Id)) { }
 }

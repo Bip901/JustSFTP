@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -57,46 +58,47 @@ public class SshStreamReader
 
     public async Task<SFTPAttributes> ReadAttributes(CancellationToken cancellationToken = default)
     {
-        var flags = (PFlags)await ReadUInt32(cancellationToken).ConfigureAwait(false);
-        var size = flags.HasFlag(PFlags.Size)
+        PFlags flags = (PFlags)await ReadUInt32(cancellationToken).ConfigureAwait(false);
+        ulong? size = flags.HasFlag(PFlags.Size)
             ? await ReadUInt64(cancellationToken).ConfigureAwait(false)
-            : 0;
-        var owner = flags.HasFlag(PFlags.UidGid)
+            : null;
+        uint? owner = flags.HasFlag(PFlags.UidGid)
             ? await ReadUInt32(cancellationToken).ConfigureAwait(false)
-            : 0;
-        var group = flags.HasFlag(PFlags.UidGid)
+            : null;
+        uint? group = flags.HasFlag(PFlags.UidGid)
             ? await ReadUInt32(cancellationToken).ConfigureAwait(false)
-            : 0;
-        var permissions = flags.HasFlag(PFlags.Permissions)
+            : null;
+        Permissions? permissions = flags.HasFlag(PFlags.Permissions)
             ? (Permissions)await ReadUInt32(cancellationToken).ConfigureAwait(false)
-            : Permissions.None;
-        var atime = flags.HasFlag(PFlags.AccessModifiedTime)
+            : null;
+        DateTimeOffset? atime = flags.HasFlag(PFlags.AccessModifiedTime)
             ? await ReadTime(cancellationToken).ConfigureAwait(false)
-            : DateTimeOffset.MinValue;
-        var mtime = flags.HasFlag(PFlags.AccessModifiedTime)
+            : null;
+        DateTimeOffset? mtime = flags.HasFlag(PFlags.AccessModifiedTime)
             ? await ReadTime(cancellationToken).ConfigureAwait(false)
-            : DateTimeOffset.MinValue;
-        var extended_count = flags.HasFlag(PFlags.Extended)
-            ? await ReadUInt32(cancellationToken).ConfigureAwait(false)
-            : 0;
-
-        var attrs = new SFTPAttributes(
-            size,
-            new SFTPUser(owner),
-            new SFTPGroup(group),
-            permissions,
-            atime,
-            mtime
-        );
-
-        for (var i = 0; i < extended_count; i++)
+            : null;
+        Dictionary<string, string>? extendedAttributes = null;
+        if (flags.HasFlag(PFlags.Extended))
         {
-            var type = await ReadString(cancellationToken).ConfigureAwait(false);
-            var data = await ReadString(cancellationToken).ConfigureAwait(false);
-            attrs.ExtendeAttributes.Add(type, data);
+            uint extendedCount = await ReadUInt32(cancellationToken).ConfigureAwait(false);
+            extendedAttributes = new Dictionary<string, string>((int)extendedCount);
+            for (var i = 0; i < extendedCount; i++)
+            {
+                var type = await ReadString(cancellationToken).ConfigureAwait(false);
+                var data = await ReadString(cancellationToken).ConfigureAwait(false);
+                extendedAttributes.Add(type, data);
+            }
         }
-
-        return attrs;
+        return new SFTPAttributes()
+        {
+            FileSize = size,
+            User = owner == null ? null : new SFTPUser(owner.Value),
+            Group = group == null ? null : new SFTPGroup(group.Value),
+            Permissions = permissions,
+            LastAccessedTime = atime,
+            LastModifiedTime = mtime,
+            ExtendedAttributes = extendedAttributes,
+        };
     }
 
     public async Task<byte[]> ReadBinary(CancellationToken cancellationToken = default) =>

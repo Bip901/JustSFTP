@@ -23,6 +23,6 @@ public record SFTPFSetStatRequest(uint RequestId, byte[] Handle, SFTPAttributes 
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(Handle.Length, cancellationToken).ConfigureAwait(false);
         await writer.Write(Handle, cancellationToken).ConfigureAwait(false);
-        await writer.Write(Attrs, PFlags.DEFAULT, cancellationToken).ConfigureAwait(false);
+        await writer.Write(Attrs, cancellationToken).ConfigureAwait(false);
     }
 }

@@ -1,15 +1,16 @@
 ﻿namespace JustSFTP.Protocol.Models;
 
-public abstract record SFTPIdentifier(uint Id, string Name)
+/// <summary>
+/// A user or group.
+/// </summary>
+/// <param name="Id">The uid or gid.</param>
+public abstract record SFTPIdentifier(uint Id)
 {
-    public SFTPIdentifier(uint Id)
-        : this(Id, LookupId(Id)) { }
-
-    protected static string LookupId(uint id) =>
-        id switch
-        {
-            0 => "root",
-            65534 => "nobody",
-            _ => "unknown",
-        };
+    /// <summary>
+    /// Returns the name of the user or group.
+    /// </summary>
+    public override string ToString()
+    {
+        return Id == 0 ? "root" : $"user_{Id}";
+    }
 }

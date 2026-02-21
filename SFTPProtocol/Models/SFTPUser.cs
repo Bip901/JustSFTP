@@ -1,10 +1,13 @@
 ﻿namespace JustSFTP.Protocol.Models;
 
-public record SFTPUser(uint Id, string Name) : SFTPIdentifier(Id, Name)
+/// <summary>
+/// A unix user.
+/// </summary>
+/// <param name="Uid">The user id.</param>
+public record SFTPUser(uint Uid) : SFTPIdentifier(Uid)
 {
+    /// <summary>
+    /// The "root" user.
+    /// </summary>
     public static readonly SFTPUser Root = new(0);
-    public static readonly SFTPUser Nobody = new(65534);
-
-    public SFTPUser(uint Id)
-        : this(Id, LookupId(Id)) { }
 }

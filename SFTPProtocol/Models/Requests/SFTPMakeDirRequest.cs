@@ -22,6 +22,6 @@ public record SFTPMakeDirRequest(uint RequestId, string Path, SFTPAttributes Att
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(Path, cancellationToken).ConfigureAwait(false);
-        await writer.Write(Attrs, PFlags.DEFAULT, cancellationToken).ConfigureAwait(false);
+        await writer.Write(Attrs, cancellationToken).ConfigureAwait(false);
     }
 }

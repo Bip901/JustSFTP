@@ -5,6 +5,7 @@ namespace JustSFTP.Protocol.Enums;
 [Flags]
 public enum PFlags : uint
 {
+    None = 0,
     Size = 0x00000001,
     UidGid = 0x00000002,
     Permissions = 0x00000004,

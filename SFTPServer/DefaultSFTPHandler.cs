@@ -224,7 +224,7 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
     {
         if (TryGetFSObject(path, out var fsObject) && fsObject.LinkTarget != null)
         {
-            return Task.FromResult(SFTPName.FromString(fsObject.LinkTarget));
+            return Task.FromResult(new SFTPName(fsObject.LinkTarget, SFTPAttributes.DummyFile));
         }
         throw new HandlerException(Status.NoSuchFile);
     }
@@ -265,15 +265,15 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        if (TryGetFSObject(path, out var fsoObject))
+        if (TryGetFSObject(path, out FileSystemInfo? fileSystemInfo))
         {
-            if (attributes.LastAccessedTime != DateTimeOffset.MinValue)
+            if (attributes.LastAccessedTime != null)
             {
-                fsoObject.LastAccessTimeUtc = attributes.LastAccessedTime.UtcDateTime;
+                fileSystemInfo.LastAccessTimeUtc = attributes.LastAccessedTime.Value.UtcDateTime;
             }
-            if (attributes.LastModifiedTime != DateTimeOffset.MinValue)
+            if (attributes.LastModifiedTime != null)
             {
-                fsoObject.LastWriteTimeUtc = attributes.LastModifiedTime.UtcDateTime;
+                fileSystemInfo.LastWriteTimeUtc = attributes.LastModifiedTime.Value.UtcDateTime;
             }
             // TODO: Read/Write/Execute... etc.
         }

@@ -51,48 +51,46 @@ public class SshStreamWriter : IDisposable
 
     public async Task Write(SFTPName name, CancellationToken cancellationToken = default)
     {
-        SFTPAttributes fileattrs = name.Attributes;
         await Write(name.Name, cancellationToken).ConfigureAwait(false);
         await Write(name.LongName, cancellationToken).ConfigureAwait(false);
-        await Write(fileattrs, PFlags.DEFAULT, cancellationToken).ConfigureAwait(false);
+        await Write(name.Attributes, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task Write(
         SFTPAttributes attributes,
-        PFlags flags = PFlags.DEFAULT,
         CancellationToken cancellationToken = default
     )
     {
-        await Write(flags, cancellationToken).ConfigureAwait(false);
-        if (flags.HasFlag(PFlags.Size))
+        await Write(attributes.PFlags, cancellationToken).ConfigureAwait(false);
+        if (attributes.FileSize != null)
         {
-            await Write(attributes.FileSize, cancellationToken).ConfigureAwait(false);
+            await Write(attributes.FileSize.Value, cancellationToken).ConfigureAwait(false);
         }
 
-        if (flags.HasFlag(PFlags.UidGid))
+        if (attributes.User != null && attributes.Group != null)
         {
             await Write(attributes.User.Id, cancellationToken).ConfigureAwait(false);
             await Write(attributes.Group.Id, cancellationToken).ConfigureAwait(false);
         }
-        if (flags.HasFlag(PFlags.Permissions))
+        if (attributes.Permissions != null)
         {
-            await Write(attributes.Permissions, cancellationToken).ConfigureAwait(false);
+            await Write(attributes.Permissions.Value, cancellationToken).ConfigureAwait(false);
         }
 
-        if (flags.HasFlag(PFlags.AccessModifiedTime))
+        if (attributes.LastAccessedTime != null && attributes.LastModifiedTime != null)
         {
-            await Write(attributes.LastAccessedTime, cancellationToken).ConfigureAwait(false);
-            await Write(attributes.LastModifiedTime, cancellationToken).ConfigureAwait(false);
+            await Write(attributes.LastAccessedTime.Value, cancellationToken).ConfigureAwait(false);
+            await Write(attributes.LastModifiedTime.Value, cancellationToken).ConfigureAwait(false);
         }
 
-        if (flags.HasFlag(PFlags.Extended))
+        if (attributes.ExtendedAttributes != null)
         {
-            await Write(attributes.ExtendeAttributes.Count, cancellationToken)
+            await Write(attributes.ExtendedAttributes.Count, cancellationToken)
                 .ConfigureAwait(false);
-            foreach (var a in attributes.ExtendeAttributes)
+            foreach (var pair in attributes.ExtendedAttributes)
             {
-                await Write(a.Key, cancellationToken).ConfigureAwait(false); //type
-                await Write(a.Value, cancellationToken).ConfigureAwait(false); //data
+                await Write(pair.Key, cancellationToken).ConfigureAwait(false);
+                await Write(pair.Value, cancellationToken).ConfigureAwait(false);
             }
         }
     }

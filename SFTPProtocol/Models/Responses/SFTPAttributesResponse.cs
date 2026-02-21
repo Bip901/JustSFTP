@@ -21,7 +21,7 @@ public record SFTPAttributesResponse(uint RequestId, SFTPAttributes Attrs) : SFT
     )
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
-        await writer.Write(Attrs, PFlags.DEFAULT, cancellationToken).ConfigureAwait(false);
+        await writer.Write(Attrs, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
