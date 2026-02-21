@@ -1,8 +1,7 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Protocol;
@@ -13,6 +12,9 @@ using JustSFTP.Protocol.Models.Responses;
 
 namespace JustSFTP.Server;
 
+/// <summary>
+/// An SFTP server that serves just the SFTP protocol over any streams.
+/// </summary>
 public sealed class SFTPServer : ISFTPServer, IDisposable
 {
     private const uint SERVER_SFTP_PROTOCOL_VERSION = 3;
@@ -21,6 +23,11 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         uint requestId,
         CancellationToken cancellationToken
     );
+
+    /// <summary>
+    /// The trace source this <see cref="SFTPServer"/> logs to.
+    /// </summary>
+    public TraceSource TraceSource { get; }
 
     private readonly SshStreamReader _reader;
     private readonly SshStreamWriter _writer;
@@ -33,24 +40,36 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     /// Creates a new <see cref="SFTPServer"/> over the given streams, serving files from the given path.
     /// The server is not responsible for closing the streams.
     /// </summary>
+    /// <param name="inStream">The stream to read from.</param>
+    /// <param name="outStream">The stream to write to.</param>
+    /// <param name="root">The root path in the local filesystem to serve from.</param>
+    /// <param name="writeBufferSize">The write buffer size in bytes. Longer messages will not be able to be written.</param>
+    /// <param name="traceSource">Optionally, a trace source to log to. Defaults to a silent trace source. See also: <seealso cref="TraceEventIds"/>.</param>
     /// <exception cref="ArgumentNullException"></exception>
     public SFTPServer(
         Stream inStream,
         Stream outStream,
         SFTPPath root,
+        TraceSource? traceSource = null,
         int writeBufferSize = 1048576
     ) // 1 MiB
-        : this(inStream, outStream, new DefaultSFTPHandler(root), writeBufferSize) { }
+        : this(inStream, outStream, new DefaultSFTPHandler(root), traceSource, writeBufferSize) { }
 
     /// <summary>
     /// Creates a new <see cref="SFTPServer"/> over the given streams, serving files using the given <see cref="ISFTPHandler"/>.
     /// The server is not responsible for closing the streams.
     /// </summary>
+    /// <param name="inStream">The stream to read from.</param>
+    /// <param name="outStream">The stream to write to.</param>
+    /// <param name="sftpHandler">The SFTP handler.</param>
+    /// <param name="writeBufferSize">The write buffer size in bytes. Longer messages will not be able to be written.</param>
+    /// <param name="traceSource">Optionally, a trace source to log to. Defaults to a silent trace source. See also: <seealso cref="TraceEventIds"/>.</param>
     /// <exception cref="ArgumentNullException"></exception>
     public SFTPServer(
         Stream inStream,
         Stream outStream,
         ISFTPHandler sftpHandler,
+        TraceSource? traceSource = null,
         int writeBufferSize = 1048576
     ) // 1 MiB
     {
@@ -87,6 +106,8 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
 #endif
             { RequestType.Extended, ExtendedHandler },
         };
+
+        TraceSource = traceSource ?? new TraceSource(nameof(SFTPServer), SourceLevels.Off);
     }
 
     /// <summary>
@@ -99,49 +120,65 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         do
         {
             msglength = await _reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
-            if (msglength > 0)
+            if (msglength == 0)
             {
-                // Determine message type
-                var msgtype = (RequestType)
-                    await _reader.ReadByte(cancellationToken).ConfigureAwait(false);
-                if (_protocolversion == 0 && msgtype is RequestType.Init)
-                {
-                    // We subtract 5 bytes (1 for requesttype and 4 for protocolversion) from msglength and pass the
-                    // remainder so the inithandler can parse extensions (if any)
-                    await InitHandler(msglength - 5, cancellationToken).ConfigureAwait(false);
-                }
-                else if (_protocolversion > 0)
-                {
-                    uint requestId = await _reader
-                        .ReadUInt32(cancellationToken)
-                        .ConfigureAwait(false);
-                    SFTPResponse response;
-                    if (_messageHandlers.TryGetValue(msgtype, out var handler))
-                    {
-                        try
-                        {
-                            response = await handler(requestId, cancellationToken)
-                                .ConfigureAwait(false);
-                        }
-                        catch (HandlerException ex)
-                        {
-                            response = BuildStatus(requestId, ex.Status, ex.HasExplicitMessage ? ex.Message : null);
-                        }
-                        catch
-                        {
-                            response = BuildStatus(requestId, Status.Failure);
-                        }
-                    }
-                    else
-                    {
-                        response = BuildStatus(requestId, Status.OperationUnsupported);
-                    }
-                    await response.WriteAsync(_writer, cancellationToken).ConfigureAwait(false);
-                }
-
-                // Write response
-                await _writer.Flush(cancellationToken).ConfigureAwait(false);
+                break;
             }
+            // Determine message type
+            RequestType requestType = (RequestType)
+                await _reader.ReadByte(cancellationToken).ConfigureAwait(false);
+            if (_protocolversion == 0 && requestType is RequestType.Init)
+            {
+                // We subtract 5 bytes (1 for requesttype and 4 for protocolversion) from msglength and pass the
+                // remainder so the inithandler can parse extensions (if any)
+                await InitHandler(msglength - 5, cancellationToken).ConfigureAwait(false);
+            }
+            else if (_protocolversion > 0)
+            {
+                uint requestId = await _reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
+                TraceSource.TraceEvent(
+                    TraceEventType.Verbose,
+                    TraceEventIds.SFTPServer_ReceivedRequest,
+                    "RECV: #{0} {1}",
+                    requestId,
+                    requestType
+                );
+                SFTPResponse response;
+                if (_messageHandlers.TryGetValue(requestType, out MessageHandler? handler))
+                {
+                    try
+                    {
+                        response = await handler(requestId, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    catch (HandlerException ex)
+                    {
+                        response = BuildStatus(
+                            requestId,
+                            ex.Status,
+                            ex.HasExplicitMessage ? ex.Message : null
+                        );
+                    }
+                    catch
+                    {
+                        response = BuildStatus(requestId, Status.Failure);
+                    }
+                }
+                else
+                {
+                    response = BuildStatus(requestId, Status.OperationUnsupported);
+                }
+                TraceSource.TraceEvent(
+                    TraceEventType.Verbose,
+                    TraceEventIds.SFTPServer_SendingResponse,
+                    "SEND: {0}",
+                    response
+                );
+                await response.WriteAsync(_writer, cancellationToken).ConfigureAwait(false);
+            }
+
+            // Write response
+            await _writer.Flush(cancellationToken).ConfigureAwait(false);
         } while (!cancellationToken.IsCancellationRequested && msglength > 0);
     }
 
@@ -151,11 +188,11 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     )
     {
         // Get client version
-        var clientversion = await _reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
+        uint clientversion = await _reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
         _protocolversion = Math.Min(clientversion, SERVER_SFTP_PROTOCOL_VERSION);
 
         // Get client extensions (if any)
-        var clientExtensions = new Dictionary<string, string>();
+        Dictionary<string, string> clientExtensions = new Dictionary<string, string>();
         while (extensiondatalength > 0)
         {
             byte[] nameBytes = await _reader.ReadBinary(cancellationToken).ConfigureAwait(false);
@@ -172,11 +209,18 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         // Send version response
         await _writer.Write(ResponseType.Version, cancellationToken).ConfigureAwait(false);
         await _writer.Write(_protocolversion, cancellationToken).ConfigureAwait(false);
-        foreach (var e in serverExtensions)
+        foreach (var pair in serverExtensions)
         {
-            await _writer.Write(e.Key, cancellationToken).ConfigureAwait(false);
-            await _writer.Write(e.Value, cancellationToken).ConfigureAwait(false);
+            await _writer.Write(pair.Key, cancellationToken).ConfigureAwait(false);
+            await _writer.Write(pair.Value, cancellationToken).ConfigureAwait(false);
         }
+
+        TraceSource.TraceEvent(
+            TraceEventType.Information,
+            TraceEventIds.SFTPServer_InitSuccess,
+            "Negotiated protocol version: {0}",
+            _protocolversion
+        );
     }
 
     private async Task<SFTPResponse> OpenHandler(

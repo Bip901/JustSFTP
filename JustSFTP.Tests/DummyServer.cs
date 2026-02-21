@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Threading;
@@ -32,7 +33,7 @@ public sealed class DummyServer : IAsyncDisposable
         ClientWriteStream = clientWriteStream;
     }
 
-    public static DummyServer Run()
+    public static DummyServer Run(TraceSource? traceSource = null)
     {
         AnonymousPipeServerStream clientWrite = new(PipeDirection.Out);
         AnonymousPipeClientStream serverRead = new(
@@ -48,7 +49,7 @@ public sealed class DummyServer : IAsyncDisposable
         CancellationTokenSource serverCancel = new();
         string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
         SFTPPath sftpRoot = new(Path.Combine(baseDirectory, "DummyServerFiles"));
-        SFTPServer server = new(serverRead, serverWrite, sftpRoot);
+        SFTPServer server = new(serverRead, serverWrite, sftpRoot, traceSource);
         return new DummyServer(
             server,
             Task.Run(() => server.Run(serverCancel.Token)),

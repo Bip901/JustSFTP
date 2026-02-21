@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Client;
 using JustSFTP.Protocol.Models;
+using JustSFTP.Server;
 
 namespace JustSFTP.Tests;
 
@@ -19,7 +20,9 @@ public class TestEndToEnd
     {
         TraceSource clientTraceSource = new(nameof(SFTPClient), SourceLevels.All);
         clientTraceSource.Listeners.Add(new ConsoleTraceListener(useErrorStream: true));
-        await using DummyServer dummyServer = DummyServer.Run();
+        TraceSource serverTraceSource = new(nameof(SFTPServer), SourceLevels.All);
+        serverTraceSource.Listeners.Add(new ConsoleTraceListener(useErrorStream: true));
+        await using DummyServer dummyServer = DummyServer.Run(serverTraceSource);
         using SFTPClient client = new(
             dummyServer.ClientReadStream,
             dummyServer.ClientWriteStream,
@@ -53,7 +56,9 @@ public class TestEndToEnd
 
         // Test Stat
         // Convert to seconds accuracy because that's the accuracy preserved in SFTP
-        DateTimeOffset utcNow = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        DateTimeOffset utcNow = DateTimeOffset.FromUnixTimeSeconds(
+            DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        );
         await client.SetStatAsync(
             "/example.txt",
             new SFTPAttributes() { LastModifiedTime = utcNow, LastAccessedTime = utcNow }
