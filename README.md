@@ -1,39 +1,19 @@
 # Just SFTP
 
-This library implements the [V3 version of the SFTP protocol](https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-02), and just it - you are free to use any transport/encryption layer (e.g. using a library like [Microsoft's DevTunnels SSH](https://github.com/microsoft/dev-tunnels-ssh)).
+[![JustSFTP.Protocol on NuGet](https://img.shields.io/nuget/v/JustSFTP.Protocol?label=JustSFTP.Protocol%20NuGet)](https://www.nuget.org/packages/JustSFTP.Protocol/)
+[![JustSFTP.Server on NuGet](https://img.shields.io/nuget/v/JustSFTP.Server?label=JustSFTP.Server%20NuGet)](https://www.nuget.org/packages/JustSFTP.Server/)
+[![JustSFTP.Client on NuGet](https://img.shields.io/nuget/v/JustSFTP.Client?label=JustSFTP.Client%20NuGet)](https://www.nuget.org/packages/JustSFTP.Client/)
 
-The included [host](./SFTPHost/) is intended to be hosted in an SSH deamon; this can be done by editting the `sshd_config` file (usually in `/etc/ssh/` or, for Windows, in `%PROGRAMDATA%\ssh`) and pointing it to your own host executable.
+This project implements the [V3 version of the SFTP protocol](https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-02), and just it - you are free to use any transport/encryption layer (e.g. using a library like [Microsoft's DevTunnels SSH](https://github.com/microsoft/dev-tunnels-ssh)), or OpenSSH's daemon - see [JustSFTP.Host](./SFTPHost/README.md).
 
-In `sshd_config` you'll find the `Subsystem` entry which can be pointed to any executable:
-```
-# override default of no subsystems
-#Subsystem	sftp	sftp-server.exe
-#Subsystem	sftp	internal-sftp
-Subsystem	sftp	/path/to/your/sftphost.exe
-```
 
-The way SFTP works is that first an SSH connection is established; once that is done and a request is made for sftp, SSH will launch the configured executable under the connected user's account. All communication is done over `stdin` and `stdout`. The `SFTPServer` class takes 2 [`Streams`](https://docs.microsoft.com/en-us/dotnet/api/system.io.stream) and optionally an `ISFTPHandler` on which the SFTP commands will be invoked. This package comes with a `DefaultSFTPHandler` which provides basic I/O on the hosts's filesystem (based on a rootdirectory), but it should be pretty easy to implement your own `ISFTPHandler` so you can, for example, implement a virtual filesystem.
+## Contents of this repo
 
-The `SFTPHost` project in this repository demonstrates how to simply build an executable that hosts an `SFTPServer` instance. A new `SFTPServer` is launched by the SSH service for each connection.
-
-## Implementing an `ISFTPHandler`
-
-Implementing an `ISFTPHandler` should be pretty straightforward, simply implement the `ISFTPHandler` interface. Exceptions you might want to throw should, ideally, be inherited from the `HandlerException`. This library comes with a few built-in exceptions in the `SFTP.Exceptions` namespace. Exceptions that are not inherited from the `HandlerException` will be returned to the client as [`Failure` (`SSH_FX_FAILURE`)](https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-02#page-20). For an example implementation you can have a look at the `DefaultSFTPHandler`.
-
-## Known issues and limitations
-
-* Note that this library only implements V3; higher versions are not supported. Clients connecting with a higher version will be negotiated down to V3.
-
-* The [`SymLink`](https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-02#section-6.10) command has been implemented with the `linkpath` and `targetpath` swapped; We may or may not interpret the RFC incorrectly (Update: [We didn't](https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-09#:~:text=many%0A%20%20%20%20%20%20implementation%20implemented%20SYMLINK%20with%20the%20arguments%20reversed)) or the clients which were used to test the `SymLink` command (WinSCP, Cyberduck and the 'native' sftp commandline executable) had the arguments swapped. The `SymLink` and `ReadLink` methods are only available from .Net 6.0 upwards.
-
-* The `DefaultSFTPHandler` **DOES NOT** take particular much care of path canonicalization or mitigations against path traversion. When used in an untrusted environment extra care should be taken to ensure safety.
-
-* The `DefaultSFTPHandler` **DOES NOT** make a noteworthy effort to return correct POSIX file permissions, nor does it support setting permissions.
+* [SFTP Server](./SFTPServer/README.md)
+    * [SFTP Host](./SFTPHost/README.md)
+* [SFTP Client](./SFTPClient/README.md)
+* [SFTP Protocol Shared Library](./SFTPProtocol/README.md)
 
 ## License
 
 Licensed under MIT license. See [LICENSE](./LICENSE) for details.
-
-### Attributions
-
-[Logo / icon by Alexiuz AS](https://icon-icons.com/icon/sftp/117855) ([Archived](https://web.archive.org/web/20220520155358/https://icon-icons.com/icon/sftp/117855))
