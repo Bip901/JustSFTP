@@ -45,7 +45,8 @@ public class Program
             stdin,
             stdout,
             new SFTPPath(sftpServerOptions.Root),
-            sftpServerOptions.MaxMessageSize
+            traceSource: null,
+            writeBufferSize: sftpServerOptions.MaxMessageSize
         );
 
         using var cts = new CancellationTokenSource();
