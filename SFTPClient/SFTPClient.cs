@@ -156,21 +156,24 @@ public class SFTPClient : IDisposable
     /// <summary>
     /// Opens the given file.
     /// </summary>
-    /// <param name="Path">The remote path of the file to open.</param>
-    /// <param name="Flags">The access flags, e.g. read/write.</param>
-    /// <param name="Attributes">The initial attributes for the file. Default values will be used for those attributes that are not specified.</param>
+    /// <param name="path">The remote path of the file to open.</param>
+    /// <param name="flags">The access flags, e.g. read/write.</param>
+    /// <param name="attributes">The initial attributes for the file. Default values will be used for those attributes that are not specified.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
     /// <exception cref="HandlerException"/>
     /// <exception cref="InvalidDataException"/>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
     public async Task<Stream> OpenFileAsync(
-        string Path,
-        AccessFlags Flags,
-        SFTPAttributes Attributes
+        string path,
+        AccessFlags flags,
+        SFTPAttributes attributes,
+        CancellationToken cancellationToken = default
     )
     {
         SFTPResponse response = await RequestAsync(
-                new SFTPOpenRequest(GetNextRequestId(), Path, Flags, Attributes)
+                new SFTPOpenRequest(GetNextRequestId(), path, flags, attributes),
+                cancellationToken
             )
             .ConfigureAwait(false);
         SFTPHandleResponse handleResponse = CheckResponseTypeAndStatus<SFTPHandleResponse>(
@@ -179,8 +182,8 @@ public class SFTPClient : IDisposable
         return new SFTPFileStream(
             this,
             handleResponse.Handle,
-            Flags.HasFlag(AccessFlags.Read),
-            Flags.HasFlag(AccessFlags.Write)
+            flags.HasFlag(AccessFlags.Read),
+            flags.HasFlag(AccessFlags.Write)
         );
     }
 
@@ -192,12 +195,12 @@ public class SFTPClient : IDisposable
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
     public async IAsyncEnumerable<SFTPName> IterDirAsync(
-        string Path,
-        [EnumeratorCancellation] CancellationToken cancellationToken
+        string path,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
     )
     {
         SFTPResponse openResponse = await RequestAsync(
-                new SFTPOpenDirRequest(GetNextRequestId(), Path),
+                new SFTPOpenDirRequest(GetNextRequestId(), path),
                 cancellationToken
             )
             .ConfigureAwait(false);
@@ -241,13 +244,13 @@ public class SFTPClient : IDisposable
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
     public async Task MakeDirAsync(
-        string Path,
-        SFTPAttributes Attributes,
+        string path,
+        SFTPAttributes attributes,
         CancellationToken cancellationToken = default
     )
     {
         SFTPResponse response = await RequestAsync(
-                new SFTPMakeDirRequest(GetNextRequestId(), Path, Attributes),
+                new SFTPMakeDirRequest(GetNextRequestId(), path, attributes),
                 cancellationToken
             )
             .ConfigureAwait(false);
@@ -261,10 +264,10 @@ public class SFTPClient : IDisposable
     /// <exception cref="InvalidDataException"/>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public async Task RemoveDirAsync(string Path, CancellationToken cancellationToken = default)
+    public async Task RemoveDirAsync(string path, CancellationToken cancellationToken = default)
     {
         SFTPResponse response = await RequestAsync(
-                new SFTPRemoveDirRequest(GetNextRequestId(), Path),
+                new SFTPRemoveDirRequest(GetNextRequestId(), path),
                 cancellationToken
             )
             .ConfigureAwait(false);
@@ -278,10 +281,10 @@ public class SFTPClient : IDisposable
     /// <exception cref="InvalidDataException"/>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public async Task RemoveAsync(string Path, CancellationToken cancellationToken = default)
+    public async Task RemoveAsync(string path, CancellationToken cancellationToken = default)
     {
         SFTPResponse response = await RequestAsync(
-                new SFTPRemoveRequest(GetNextRequestId(), Path),
+                new SFTPRemoveRequest(GetNextRequestId(), path),
                 cancellationToken
             )
             .ConfigureAwait(false);
@@ -289,17 +292,20 @@ public class SFTPClient : IDisposable
     }
 
     /// <summary>
-    /// Renames a file or directory from <paramref name="OldPath"/> to <paramref name="NewPath"/>.
+    /// Renames a file or directory from <paramref name="oldPath"/> to <paramref name="newPath"/>.
     /// </summary>
     /// <exception cref="HandlerException"/>
+    /// <exception cref="InvalidDataException"/>
+    /// <exception cref="OperationCanceledException"/>
+    /// <exception cref="ObjectDisposedException"/>
     public async Task RenameAsync(
-        string OldPath,
-        string NewPath,
+        string oldPath,
+        string newPath,
         CancellationToken cancellationToken = default
     )
     {
         SFTPResponse response = await RequestAsync(
-                new SFTPRenameRequest(GetNextRequestId(), OldPath, NewPath),
+                new SFTPRenameRequest(GetNextRequestId(), oldPath, newPath),
                 cancellationToken
             )
             .ConfigureAwait(false);
