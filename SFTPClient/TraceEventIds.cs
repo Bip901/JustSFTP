@@ -9,4 +9,5 @@ public static class TraceEventIds
     public const int SFTPClient_SendingRequest = 2;
     public const int SFTPClient_DroppingResponse = 3;
     public const int SFTPClient_ReceivedResponse = 4;
+    public const int SFTPClient_ReadLoopError = 5;
 }

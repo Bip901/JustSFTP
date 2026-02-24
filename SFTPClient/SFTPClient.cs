@@ -148,6 +148,15 @@ public class SFTPClient : IDisposable
         }
         catch (Exception ex)
         {
+            if (ex is not OperationCanceledException && writerSempahore != null) // not canceled nor disposed
+            {
+                TraceSource.TraceEvent(
+                    TraceEventType.Error,
+                    TraceEventIds.SFTPClient_ReadLoopError,
+                    "Read loop error: {0}",
+                    ex
+                );
+            }
             Dispose(ex);
             throw;
         }

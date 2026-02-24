@@ -159,8 +159,16 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
                             ex.HasExplicitMessage ? ex.Message : null
                         );
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        TraceSource.TraceEvent(
+                            TraceEventType.Error,
+                            TraceEventIds.SFTPServer_SendingResponse,
+                            "Uncaught exception while responding to request #{0} of type {1}: {2}",
+                            requestId,
+                            requestType,
+                            ex
+                        );
                         response = BuildStatus(requestId, Status.Failure);
                     }
                 }
