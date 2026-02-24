@@ -37,7 +37,7 @@ public class SFTPClient : IDisposable
     private readonly bool ownsStreams;
     private uint lastRequestId = 0;
 
-    private readonly SemaphoreSlim writerSempahore;
+    private SemaphoreSlim? writerSempahore;
     private readonly ConcurrentDictionary<
         uint,
         TaskCompletionSource<SFTPResponse>
@@ -88,7 +88,8 @@ public class SFTPClient : IDisposable
         {
             reader.Stream.Dispose();
         }
-        writerSempahore.Dispose();
+        writerSempahore?.Dispose();
+        writerSempahore = null;
         ObjectDisposedException exception = new(nameof(SFTPClient), reason);
         foreach (
             TaskCompletionSource<SFTPResponse> taskCompletionSource in requestsAwaitingResponse.Values
@@ -416,6 +417,7 @@ public class SFTPClient : IDisposable
         CancellationToken cancellationToken = default
     )
     {
+        ObjectDisposedException.ThrowIf(writerSempahore == null, this);
         TraceSource.TraceEvent(
             TraceEventType.Verbose,
             TraceEventIds.SFTPClient_SendingRequest,
@@ -432,7 +434,7 @@ public class SFTPClient : IDisposable
         }
         finally
         {
-            writerSempahore.Release();
+            writerSempahore?.Release();
         }
         return await taskCompletionSource.Task.ConfigureAwait(false);
     }
@@ -445,6 +447,7 @@ public class SFTPClient : IDisposable
     /// <exception cref="InvalidDataException"/>
     private async Task<uint> InitAsync(CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(writerSempahore == null, this);
         await writer.Write(RequestType.Init, cancellationToken).ConfigureAwait(false);
         await writer.Write(CLIENT_SFTP_PROTOCOL_VERSION, cancellationToken).ConfigureAwait(false);
         await writer.Flush(cancellationToken).ConfigureAwait(false);
@@ -469,6 +472,7 @@ public class SFTPClient : IDisposable
             msglen -= (uint)(nameBytes.Length + dataBytes.Length);
         }
 
+        ObjectDisposedException.ThrowIf(writerSempahore == null, this);
         writerSempahore.Release(); // Allow requests to write
         return Math.Min(serverVersion, CLIENT_SFTP_PROTOCOL_VERSION);
     }
