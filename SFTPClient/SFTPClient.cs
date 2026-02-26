@@ -28,13 +28,20 @@ public class SFTPClient : IDisposable
 
     /// <summary>
     /// The negotiated protocol version.
-    /// This will be 0 until <see cref="RunAsync"/> is called and a handshake is performed.
+    /// This will be 0 until <see cref="InitAsync"/> completes.
     /// </summary>
     public uint ProtocolVersion { get; private set; } = 0;
+
+    /// <summary>
+    /// The returned server extensions.
+    /// This will be null until <see cref="InitAsync"/> completes.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? ServerExtensions { get; private set; } = null;
 
     private readonly SshStreamReader reader;
     private readonly SshStreamWriter writer;
     private readonly bool ownsStreams;
+    private bool initCalled;
     private uint lastRequestId = 0;
 
     private SemaphoreSlim? writerSempahore;
@@ -83,13 +90,13 @@ public class SFTPClient : IDisposable
     {
         GC.SuppressFinalize(this);
 #pragma warning restore CA1816 // Dispose methods should call SuppressFinalize
+        writerSempahore?.Dispose();
+        writerSempahore = null;
         ((IDisposable)writer).Dispose();
         if (ownsStreams)
         {
             reader.Stream.Dispose();
         }
-        writerSempahore?.Dispose();
-        writerSempahore = null;
         ObjectDisposedException exception = new(nameof(SFTPClient), reason);
         foreach (
             TaskCompletionSource<SFTPResponse> taskCompletionSource in requestsAwaitingResponse.Values
@@ -111,17 +118,16 @@ public class SFTPClient : IDisposable
     {
         try
         {
-            ProtocolVersion = await InitAsync(cancellationToken);
-            TraceSource.TraceEvent(
-                TraceEventType.Information,
-                TraceEventIds.SFTPClient_InitSuccess,
-                "Negotiated protocol version: {0}",
-                ProtocolVersion
-            );
+            if (!initCalled)
+            {
+                await InitAsync(null, cancellationToken).ConfigureAwait(false);
+            }
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                SFTPResponse response = await SFTPResponse.ReadAsync(reader, cancellationToken);
+                SFTPResponse response = await SFTPResponse
+                    .ReadAsync(reader, cancellationToken)
+                    .ConfigureAwait(false);
                 TraceSource.TraceEvent(
                     TraceEventType.Verbose,
                     TraceEventIds.SFTPClient_ReceivedResponse,
@@ -148,7 +154,14 @@ public class SFTPClient : IDisposable
         }
         catch (Exception ex)
         {
-            if (ex is not OperationCanceledException && writerSempahore != null) // not canceled nor disposed
+            if (ex is EndOfStreamException && writerSempahore == null)
+            {
+                ex = new ObjectDisposedException(nameof(SFTPClient), ex);
+            }
+            if (
+                ex is not OperationCanceledException
+                && !(ex is ObjectDisposedException && writerSempahore == null)
+            ) // not canceled nor disposed
             {
                 TraceSource.TraceEvent(
                     TraceEventType.Error,
@@ -222,9 +235,10 @@ public class SFTPClient : IDisposable
             try
             {
                 SFTPResponse readDirResponseRaw = await RequestAsync(
-                    new SFTPReadDirRequest(GetNextRequestId(), handle),
-                    cancellationToken
-                );
+                        new SFTPReadDirRequest(GetNextRequestId(), handle),
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
                 readDirResponse = CheckResponseTypeAndStatus<SFTPNameResponse>(readDirResponseRaw);
             }
             catch (Exception ex)
@@ -434,12 +448,17 @@ public class SFTPClient : IDisposable
             request
         );
         TaskCompletionSource<SFTPResponse> taskCompletionSource = new();
-        await writerSempahore.WaitAsync(cancellationToken);
+        await writerSempahore.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            requestsAwaitingResponse.TryAdd(request.RequestId, taskCompletionSource);
-            await request.WriteAsync(writer, cancellationToken);
-            await writer.Flush(cancellationToken);
+            if (!requestsAwaitingResponse.TryAdd(request.RequestId, taskCompletionSource))
+            {
+                throw new InvalidOperationException(
+                    $"Another request with ID {request.RequestId} is waiting for a response"
+                );
+            }
+            await request.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
+            await writer.Flush(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -451,14 +470,35 @@ public class SFTPClient : IDisposable
     /// <summary>
     /// Performs the init handshake with the remote server.
     /// </summary>
+    /// <remarks>
+    /// <see cref="RunAsync"/> calls this automatically when it detects it wasn't called yet.
+    /// Only call this manually if you are interested in the handshake results, or want to provide custom client extensions.
+    /// </remarks>
     /// <returns>The negotiated SFTP protocol version.</returns>
+    /// <exception cref="InvalidOperationException">When this method is called more than once during the lifetime of this SFTP client.</exception>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="InvalidDataException"/>
-    private async Task<uint> InitAsync(CancellationToken cancellationToken = default)
+    public async Task<uint> InitAsync(
+        IReadOnlyDictionary<string, string>? clientExtensions,
+        CancellationToken cancellationToken = default
+    )
     {
         ObjectDisposedException.ThrowIf(writerSempahore == null, this);
+        if (initCalled)
+        {
+            throw new InvalidOperationException("Init was already called previously.");
+        }
+        initCalled = true;
         await writer.Write(RequestType.Init, cancellationToken).ConfigureAwait(false);
         await writer.Write(CLIENT_SFTP_PROTOCOL_VERSION, cancellationToken).ConfigureAwait(false);
+        if (clientExtensions != null)
+        {
+            foreach (var pair in clientExtensions)
+            {
+                await writer.Write(pair.Key, cancellationToken).ConfigureAwait(false);
+                await writer.Write(pair.Value, cancellationToken).ConfigureAwait(false);
+            }
+        }
         await writer.Flush(cancellationToken).ConfigureAwait(false);
 
         uint msglen = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
@@ -478,12 +518,21 @@ public class SFTPClient : IDisposable
             byte[] dataBytes = await reader.ReadBinary(cancellationToken).ConfigureAwait(false);
             serverExtensions[SshStreamReader.SFTPStringEncoding.GetString(nameBytes)] =
                 SshStreamReader.SFTPStringEncoding.GetString(dataBytes);
-            msglen -= (uint)(nameBytes.Length + dataBytes.Length);
+            // Each binary is encoded with a 4-byte length prefix plus the data.
+            msglen -= (uint)(sizeof(uint) + nameBytes.Length + sizeof(uint) + dataBytes.Length);
         }
+        ServerExtensions = serverExtensions;
 
         ObjectDisposedException.ThrowIf(writerSempahore == null, this);
         writerSempahore.Release(); // Allow requests to write
-        return Math.Min(serverVersion, CLIENT_SFTP_PROTOCOL_VERSION);
+        ProtocolVersion = Math.Min(serverVersion, CLIENT_SFTP_PROTOCOL_VERSION);
+        TraceSource.TraceEvent(
+            TraceEventType.Information,
+            TraceEventIds.SFTPClient_InitSuccess,
+            "Negotiated protocol version: {0}",
+            ProtocolVersion
+        );
+        return ProtocolVersion;
     }
 
     /// <exception cref="HandlerException"></exception>

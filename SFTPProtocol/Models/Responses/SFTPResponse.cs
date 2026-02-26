@@ -60,8 +60,9 @@ public abstract record SFTPResponse(uint RequestId)
         CancellationToken cancellationToken
     )
     {
-        uint _messageLength = await reader.ReadUInt32(cancellationToken); // Ignore message length, all fields can be deduced from their types
-        ResponseType responseType = (ResponseType)await reader.ReadByte(cancellationToken);
+        uint _messageLength = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false); // Ignore message length, all fields can be deduced from their types
+        ResponseType responseType = (ResponseType)
+            await reader.ReadByte(cancellationToken).ConfigureAwait(false);
         if (
             !ResponseTypeToReadAsyncMethod.TryGetValue(
                 responseType,

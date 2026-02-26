@@ -33,7 +33,10 @@ public sealed class DummyServer : IAsyncDisposable
         ClientWriteStream = clientWriteStream;
     }
 
-    public static DummyServer Run(TraceSource? traceSource = null)
+    public static DummyServer Run(
+        SFTPExtensions? serverExtensions = null,
+        TraceSource? traceSource = null
+    )
     {
         AnonymousPipeServerStream clientWrite = new(PipeDirection.Out);
         AnonymousPipeClientStream serverRead = new(
@@ -49,7 +52,12 @@ public sealed class DummyServer : IAsyncDisposable
         CancellationTokenSource serverCancel = new();
         string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
         SFTPPath sftpRoot = new(Path.Combine(baseDirectory, "DummyServerFiles"));
-        SFTPServer server = new(serverRead, serverWrite, sftpRoot, traceSource);
+        SFTPServer server = new(
+            serverRead,
+            serverWrite,
+            new DefaultSFTPHandler(sftpRoot) { ServerExtensions = serverExtensions },
+            traceSource
+        );
         return new DummyServer(
             server,
             Task.Run(() => server.Run(serverCancel.Token)),

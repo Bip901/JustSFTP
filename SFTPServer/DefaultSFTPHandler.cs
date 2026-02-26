@@ -20,11 +20,16 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
     private readonly SFTPHandleCollection openHandles = new();
     private readonly SFTPPath root = root;
 
+    /// <summary>
+    /// Optionally, server extensions to announce to clients.
+    /// </summary>
+    public SFTPExtensions? ServerExtensions { get; init; }
+
     public virtual Task<SFTPExtensions> Init(
         uint clientVersion,
         SFTPExtensions extensions,
         CancellationToken cancellationToken = default
-    ) => Task.FromResult(SFTPExtensions.None);
+    ) => Task.FromResult(ServerExtensions ?? SFTPExtensions.None);
 
     public virtual Task<byte[]> Open(
         SFTPPath path,

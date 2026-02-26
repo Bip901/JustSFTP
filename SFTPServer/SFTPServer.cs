@@ -116,11 +116,11 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     /// <exception cref="OperationCanceledException"/>
     public async Task Run(CancellationToken cancellationToken = default)
     {
-        uint msglength;
+        uint msgLength;
         do
         {
-            msglength = await _reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
-            if (msglength == 0)
+            msgLength = await _reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
+            if (msgLength == 0)
             {
                 break;
             }
@@ -131,7 +131,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
             {
                 // We subtract 5 bytes (1 for requesttype and 4 for protocolversion) from msglength and pass the
                 // remainder so the inithandler can parse extensions (if any)
-                await InitHandler(msglength - 5, cancellationToken).ConfigureAwait(false);
+                await InitHandler(msgLength - 5, cancellationToken).ConfigureAwait(false);
             }
             else if (_protocolversion > 0)
             {
@@ -187,11 +187,11 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
 
             // Write response
             await _writer.Flush(cancellationToken).ConfigureAwait(false);
-        } while (!cancellationToken.IsCancellationRequested && msglength > 0);
+        } while (!cancellationToken.IsCancellationRequested && msgLength > 0);
     }
 
     private async Task InitHandler(
-        uint extensiondatalength,
+        uint extensionDataLength,
         CancellationToken cancellationToken = default
     )
     {
@@ -200,14 +200,14 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         _protocolversion = Math.Min(clientversion, SERVER_SFTP_PROTOCOL_VERSION);
 
         // Get client extensions (if any)
-        Dictionary<string, string> clientExtensions = new Dictionary<string, string>();
-        while (extensiondatalength > 0)
+        Dictionary<string, string> clientExtensions = [];
+        while (extensionDataLength > 0)
         {
             byte[] nameBytes = await _reader.ReadBinary(cancellationToken).ConfigureAwait(false);
             byte[] dataBytes = await _reader.ReadBinary(cancellationToken).ConfigureAwait(false);
             clientExtensions[SshStreamReader.SFTPStringEncoding.GetString(nameBytes)] =
                 SshStreamReader.SFTPStringEncoding.GetString(dataBytes);
-            extensiondatalength -= (uint)(nameBytes.Length + dataBytes.Length);
+            extensionDataLength -= (uint)(sizeof(uint) + nameBytes.Length + sizeof(uint) + dataBytes.Length);
         }
 
         SFTPExtensions serverExtensions = await _sftphandler
