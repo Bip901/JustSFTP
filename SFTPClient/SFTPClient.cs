@@ -171,7 +171,7 @@ public class SFTPClient : IDisposable
                 );
             }
             Dispose(ex);
-            throw;
+            throw ex;
         }
     }
 
