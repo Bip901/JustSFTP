@@ -4,7 +4,9 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Protocol;
+using JustSFTP.Protocol.Enums;
 using JustSFTP.Protocol.Models;
+using JustSFTP.Protocol.Models.Responses;
 
 namespace JustSFTP.Server;
 
@@ -14,8 +16,8 @@ public interface ISFTPHandler
         uint clientVersion,
         SFTPExtensions extensions,
         CancellationToken cancellationToken = default
-    
-);
+    );
+
     Task<byte[]> Open(
         SFTPPath path,
         FileMode fileMode,
@@ -90,4 +92,18 @@ public interface ISFTPHandler
         CancellationToken cancellationToken = default
     );
 #endif
+
+    /// <summary>
+    /// Handle any vendor-specific SFTP extensions.
+    /// </summary>
+    /// <remarks>Throw HandlerException(Status.OperationUnsupported) if you don't recognize the request name.</remarks>
+    /// <exception cref="HandlerException"/>
+    Task<SFTPResponse> Extended(
+        string requestName,
+        byte[] restOfRequest,
+        CancellationToken cancellationToken = default
+    )
+    {
+        throw new HandlerException(Status.OperationUnsupported);
+    }
 }

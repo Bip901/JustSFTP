@@ -35,12 +35,12 @@ public record SFTPNameResponse(uint RequestId, IReadOnlyCollection<SFTPName> Nam
     /// </summary>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public static new async Task<SFTPResponse> ReadAsync(
+    public static async Task<SFTPResponse> ReadAsync(
+        uint requestId,
         SshStreamReader reader,
         CancellationToken cancellationToken
     )
     {
-        uint requestId = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
         var count = (int)await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
         var names = new List<SFTPName>(count);
         for (var i = 0; i < count; i++)

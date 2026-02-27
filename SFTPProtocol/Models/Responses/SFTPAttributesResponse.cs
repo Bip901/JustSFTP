@@ -29,12 +29,12 @@ public record SFTPAttributesResponse(uint RequestId, SFTPAttributes Attrs) : SFT
     /// </summary>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public static new async Task<SFTPResponse> ReadAsync(
+    public static async Task<SFTPResponse> ReadAsync(
+        uint requestId,
         SshStreamReader reader,
         CancellationToken cancellationToken
     )
     {
-        uint requestId = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
         SFTPAttributes attrs = await reader.ReadAttributes(cancellationToken).ConfigureAwait(false);
         return new SFTPAttributesResponse(requestId, attrs);
     }

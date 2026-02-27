@@ -46,12 +46,12 @@ public record SFTPStatus(uint RequestId, Status Status) : SFTPResponse(RequestId
     /// </summary>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public static new async Task<SFTPResponse> ReadAsync(
+    public static async Task<SFTPResponse> ReadAsync(
+        uint requestId,
         SshStreamReader reader,
         CancellationToken cancellationToken
     )
     {
-        uint requestId = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
         Status status = (Status)await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
         string errorMessage = await reader.ReadString(cancellationToken).ConfigureAwait(false);
         string languageTag = await reader.ReadString(cancellationToken).ConfigureAwait(false);

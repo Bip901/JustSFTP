@@ -13,7 +13,11 @@ namespace JustSFTP.Protocol.Models.Responses;
 /// </summary>
 public abstract record SFTPResponse(uint RequestId)
 {
-    private delegate Task<SFTPResponse> ReadAsyncMethod(
+    /// <summary>
+    /// A method that consumes and returns an SFTP response from the given reader, after its length, type and request id were already consumed.
+    /// </summary>
+    public delegate Task<SFTPResponse> ReadAsyncMethod(
+        uint requestId,
         SshStreamReader reader,
         CancellationToken cancellationToken
     );
@@ -57,12 +61,27 @@ public abstract record SFTPResponse(uint RequestId)
     /// <exception cref="ObjectDisposedException"/>
     public static async Task<SFTPResponse> ReadAsync(
         SshStreamReader reader,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        Func<uint, ReadAsyncMethod?>? getExtendedReadAsyncMethod = null
     )
     {
         uint _messageLength = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false); // Ignore message length, all fields can be deduced from their types
         ResponseType responseType = (ResponseType)
             await reader.ReadByte(cancellationToken).ConfigureAwait(false);
+        uint requestId = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
+        if (responseType == ResponseType.Extended)
+        {
+            ReadAsyncMethod? extendedReadAsyncMethod = getExtendedReadAsyncMethod?.Invoke(
+                requestId
+            );
+            if (extendedReadAsyncMethod == null)
+            {
+                throw new InvalidDataException(
+                    $"Don't know how to handle extended response for request {requestId}"
+                );
+            }
+            return await extendedReadAsyncMethod(requestId, reader, cancellationToken);
+        }
         if (
             !ResponseTypeToReadAsyncMethod.TryGetValue(
                 responseType,
@@ -72,6 +91,6 @@ public abstract record SFTPResponse(uint RequestId)
         {
             throw new InvalidDataException($"Invalid response type: {responseType}");
         }
-        return await readAsyncMethod(reader, cancellationToken);
+        return await readAsyncMethod(requestId, reader, cancellationToken);
     }
 }

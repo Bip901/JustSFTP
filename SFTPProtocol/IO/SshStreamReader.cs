@@ -44,8 +44,20 @@ public class SshStreamReader
             await ReadBinary(8, cancellationToken).ConfigureAwait(false)
         );
 
-    public async Task<string> ReadString(CancellationToken cancellationToken = default) =>
-        SFTPStringEncoding.GetString(await ReadBinary(cancellationToken).ConfigureAwait(false));
+    public async Task<string> ReadString(CancellationToken cancellationToken = default)
+    {
+        return SFTPStringEncoding.GetString(
+            await ReadBinary(cancellationToken).ConfigureAwait(false)
+        );
+    }
+
+    public async Task<(string value, int totalLength)> ReadStringAndLength(
+        CancellationToken cancellationToken = default
+    )
+    {
+        byte[] encodedBytes = await ReadBinary(cancellationToken).ConfigureAwait(false);
+        return (SFTPStringEncoding.GetString(encodedBytes), sizeof(uint) + encodedBytes.Length);
+    }
 
     public async Task<AccessFlags> ReadAccessFlags(CancellationToken cancellationToken = default) =>
         (AccessFlags)await ReadUInt32(cancellationToken).ConfigureAwait(false);
@@ -108,7 +120,7 @@ public class SshStreamReader
             )
             .ConfigureAwait(false);
 
-    private async Task<byte[]> ReadBinary(int length, CancellationToken cancellationToken = default)
+    public async Task<byte[]> ReadBinary(int length, CancellationToken cancellationToken = default)
     {
         if (length == 0)
         {

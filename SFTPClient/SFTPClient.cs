@@ -21,6 +21,17 @@ public class SFTPClient : IDisposable
 {
     private const uint CLIENT_SFTP_PROTOCOL_VERSION = 3;
 
+    class PendingRequest(
+        TaskCompletionSource<SFTPResponse> TaskCompletionSource,
+        SFTPResponse.ReadAsyncMethod? ExtendedReadAsyncMethod = null
+    )
+    {
+        public readonly TaskCompletionSource<SFTPResponse> TaskCompletionSource =
+            TaskCompletionSource;
+        public readonly SFTPResponse.ReadAsyncMethod? ExtendedReadAsyncMethod =
+            ExtendedReadAsyncMethod;
+    }
+
     /// <summary>
     /// The trace source this <see cref="SFTPClient"/> logs to.
     /// </summary>
@@ -45,10 +56,7 @@ public class SFTPClient : IDisposable
     private uint lastRequestId = 0;
 
     private SemaphoreSlim? writerSempahore;
-    private readonly ConcurrentDictionary<
-        uint,
-        TaskCompletionSource<SFTPResponse>
-    > requestsAwaitingResponse;
+    private readonly ConcurrentDictionary<uint, PendingRequest> requestsAwaitingResponse;
 
     /// <summary>
     /// Creates a new <see cref="SFTPClient"/> over the given streams.
@@ -98,11 +106,9 @@ public class SFTPClient : IDisposable
             reader.Stream.Dispose();
         }
         ObjectDisposedException exception = new(nameof(SFTPClient), reason);
-        foreach (
-            TaskCompletionSource<SFTPResponse> taskCompletionSource in requestsAwaitingResponse.Values
-        )
+        foreach (PendingRequest pendingRequest in requestsAwaitingResponse.Values)
         {
-            taskCompletionSource.TrySetException(exception);
+            pendingRequest.TaskCompletionSource.TrySetException(exception);
         }
         requestsAwaitingResponse.Clear();
     }
@@ -126,7 +132,14 @@ public class SFTPClient : IDisposable
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 SFTPResponse response = await SFTPResponse
-                    .ReadAsync(reader, cancellationToken)
+                    .ReadAsync(
+                        reader,
+                        cancellationToken,
+                        requestId =>
+                            requestsAwaitingResponse
+                                .GetValueOrDefault(requestId)
+                                ?.ExtendedReadAsyncMethod
+                    )
                     .ConfigureAwait(false);
                 TraceSource.TraceEvent(
                     TraceEventType.Verbose,
@@ -137,7 +150,7 @@ public class SFTPClient : IDisposable
                 if (
                     !requestsAwaitingResponse.TryRemove(
                         response.RequestId,
-                        out TaskCompletionSource<SFTPResponse>? taskCompletionSource
+                        out PendingRequest? pendingRequest
                     )
                 )
                 {
@@ -149,7 +162,7 @@ public class SFTPClient : IDisposable
                     );
                     continue;
                 }
-                taskCompletionSource.TrySetResult(response);
+                pendingRequest.TaskCompletionSource.TrySetResult(response);
             }
         }
         catch (Exception ex)
@@ -382,6 +395,32 @@ public class SFTPClient : IDisposable
             .ConfigureAwait(false);
         CheckResponseTypeAndStatus<SFTPStatus>(response);
     }
+
+    /// <summary>
+    /// Sends a vendor-specific extended SFTP request.
+    /// </summary>
+    /// <param name="getRequest">A method that receives the desired request id and returns the request to be sent.</param>
+    /// <param name="extendedReadAsyncMethod">Optionally, a parsing method that will be called if the server responds with an extended response.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <exception cref="HandlerException"/>
+    /// <exception cref="InvalidDataException"/>
+    /// <exception cref="OperationCanceledException"/>
+    /// <exception cref="ObjectDisposedException"/>
+    public async Task<TResponse> ExtendedRequestAsync<TResponse>(
+        Func<uint, SFTPExtendedRequest> getRequest,
+        SFTPResponse.ReadAsyncMethod? extendedReadAsyncMethod = null,
+        CancellationToken cancellationToken = default
+    )
+        where TResponse : SFTPResponse
+    {
+        SFTPResponse response = await RequestAsync(
+                getRequest(GetNextRequestId()),
+                cancellationToken,
+                extendedReadAsyncMethod
+            )
+            .ConfigureAwait(false);
+        return CheckResponseTypeAndStatus<TResponse>(response);
+    }
     #endregion
 
     #region Low-level requests
@@ -437,7 +476,8 @@ public class SFTPClient : IDisposable
     /// <exception cref="ObjectDisposedException"/>
     private async Task<SFTPResponse> RequestAsync(
         SFTPRequest request,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken,
+        SFTPResponse.ReadAsyncMethod? extendedReadAsyncMethod = null
     )
     {
         ObjectDisposedException.ThrowIf(writerSempahore == null, this);
@@ -451,7 +491,12 @@ public class SFTPClient : IDisposable
         await writerSempahore.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (!requestsAwaitingResponse.TryAdd(request.RequestId, taskCompletionSource))
+            if (
+                !requestsAwaitingResponse.TryAdd(
+                    request.RequestId,
+                    new PendingRequest(taskCompletionSource, extendedReadAsyncMethod)
+                )
+            )
             {
                 throw new InvalidOperationException(
                     $"Another request with ID {request.RequestId} is waiting for a response"
@@ -514,12 +559,14 @@ public class SFTPClient : IDisposable
         var serverExtensions = new Dictionary<string, string>();
         while (msglen > 0)
         {
-            byte[] nameBytes = await reader.ReadBinary(cancellationToken).ConfigureAwait(false);
-            byte[] dataBytes = await reader.ReadBinary(cancellationToken).ConfigureAwait(false);
-            serverExtensions[SshStreamReader.SFTPStringEncoding.GetString(nameBytes)] =
-                SshStreamReader.SFTPStringEncoding.GetString(dataBytes);
-            // Each binary is encoded with a 4-byte length prefix plus the data.
-            msglen -= (uint)(sizeof(uint) + nameBytes.Length + sizeof(uint) + dataBytes.Length);
+            (string name, int nameLength) = await reader
+                .ReadStringAndLength(cancellationToken)
+                .ConfigureAwait(false);
+            (string data, int dataLength) = await reader
+                .ReadStringAndLength(cancellationToken)
+                .ConfigureAwait(false);
+            serverExtensions[name] = data;
+            msglen -= (uint)(nameLength + dataLength);
         }
         ServerExtensions = serverExtensions;
 

@@ -30,12 +30,12 @@ public record SFTPData(uint RequestId, byte[] Data) : SFTPResponse(RequestId)
     /// </summary>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public static new async Task<SFTPResponse> ReadAsync(
+    public static async Task<SFTPResponse> ReadAsync(
+        uint requestId,
         SshStreamReader reader,
         CancellationToken cancellationToken
     )
     {
-        uint requestId = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
         byte[] data = await reader.ReadBinary(cancellationToken).ConfigureAwait(false);
         return new SFTPData(requestId, data);
     }
