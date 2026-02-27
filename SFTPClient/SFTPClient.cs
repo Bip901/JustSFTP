@@ -10,6 +10,7 @@ using JustSFTP.Protocol;
 using JustSFTP.Protocol.Enums;
 using JustSFTP.Protocol.IO;
 using JustSFTP.Protocol.Models;
+using JustSFTP.Protocol.Models.Requests;
 using JustSFTP.Protocol.Models.Responses;
 
 namespace JustSFTP.Client;
