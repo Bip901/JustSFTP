@@ -5,7 +5,11 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Client;
+using JustSFTP.Protocol;
+using JustSFTP.Protocol.Enums;
 using JustSFTP.Protocol.Models;
+using JustSFTP.Protocol.Models.Requests.Extended;
+using JustSFTP.Protocol.Models.Responses;
 using JustSFTP.Server;
 
 namespace JustSFTP.Tests;
@@ -83,6 +87,20 @@ public class TestEndToEnd
         SFTPAttributes serverAttributes = await client.StatAsync("/example.txt");
         Assert.Equal((ulong)exampleFileContents.Length, serverAttributes.FileSize);
         Assert.Equal(utcNow, serverAttributes.LastModifiedTime);
+
+        // Test extensions
+        Assert.Equal(
+            Status.OperationUnsupported,
+            (
+                await Assert.ThrowsAsync<HandlerException>(() =>
+                    client.ExtendedRequestAsync<SFTPStatus>(requestId => new SFTPPosixRenameRequest(
+                        requestId,
+                        "/example.txt",
+                        "/example2.txt"
+                    ))
+                )
+            ).Status
+        );
 
         clientCancel.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(() => clientTask);

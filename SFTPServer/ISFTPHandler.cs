@@ -100,7 +100,7 @@ public interface ISFTPHandler
     /// <exception cref="HandlerException"/>
     Task<SFTPResponse> Extended(
         string requestName,
-        byte[] restOfRequest,
+        Stream restOfRequest,
         CancellationToken cancellationToken = default
     )
     {

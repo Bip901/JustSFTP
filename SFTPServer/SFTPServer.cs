@@ -504,8 +504,9 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         byte[] restOfRequest = await reader
             .ReadBinary((int)remainingLength - requestNameLength, cancellationToken)
             .ConfigureAwait(false);
+        using MemoryStream memoryStream = new(restOfRequest);
         return await sftpHandler
-            .Extended(requestName, restOfRequest, cancellationToken)
+            .Extended(requestName, memoryStream, cancellationToken)
             .ConfigureAwait(false);
     }
 
