@@ -506,7 +506,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
             .ConfigureAwait(false);
         using MemoryStream memoryStream = new(restOfRequest);
         return await sftpHandler
-            .Extended(requestName, memoryStream, cancellationToken)
+            .Extended(requestId, requestName, memoryStream, cancellationToken)
             .ConfigureAwait(false);
     }
 

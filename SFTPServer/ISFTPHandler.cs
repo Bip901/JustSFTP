@@ -99,6 +99,7 @@ public interface ISFTPHandler
     /// <remarks>Throw HandlerException(Status.OperationUnsupported) if you don't recognize the request name.</remarks>
     /// <exception cref="HandlerException"/>
     Task<SFTPResponse> Extended(
+        uint requestId,
         string requestName,
         Stream restOfRequest,
         CancellationToken cancellationToken = default
