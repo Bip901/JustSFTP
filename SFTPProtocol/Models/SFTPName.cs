@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using JustSFTP.Protocol.Enums;
 
 namespace JustSFTP.Protocol.Models;
 
@@ -22,6 +23,16 @@ public record SFTPName(string Name, string LongName, SFTPAttributes Attributes)
     public static SFTPName FromFileSystemInfo(FileSystemInfo fileSystemInfo)
     {
         return new(fileSystemInfo.Name, SFTPAttributes.FromFileSystemInfo(fileSystemInfo));
+    }
+
+    /// <summary>
+    /// Returns whether this definitely represents a directory.
+    /// </summary>
+    /// <remarks>If the permission bits are not known, returns false.</remarks>
+    public bool IsDirectory()
+    {
+        return Attributes.Permissions.HasValue
+            && Attributes.Permissions.Value.HasFlag(Permissions.Directory);
     }
 
     /// <inheritdoc/>
