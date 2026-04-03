@@ -107,4 +107,24 @@ public interface ISFTPHandler
     {
         throw new HandlerException(Status.OperationUnsupported);
     }
+
+    /// <summary>
+    /// Returns the default status string that should be used for the given <see cref="Status"/> if no other message was given.
+    /// </summary>
+    string GetDefaultStatusString(Status status)
+    {
+        return status switch
+        {
+            Status.Ok => "Success",
+            Status.EndOfFile => "End of file",
+            Status.NoSuchFile => "No such file",
+            Status.PermissionDenied => "Permission denied",
+            Status.Failure => "Failure",
+            Status.BadMessage => "Bad message",
+            Status.NoConnection => "No connection",
+            Status.ConnectionLost => "Connection lost",
+            Status.OperationUnsupported => "Operation unsupported",
+            _ => "Unknown error",
+        };
+    }
 }

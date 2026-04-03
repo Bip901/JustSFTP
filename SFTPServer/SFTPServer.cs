@@ -143,43 +143,14 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
                     requestId,
                     requestType
                 );
-                SFTPResponse response;
-                if (messageHandlers.TryGetValue(requestType, out MessageHandler? handler))
-                {
-                    try
-                    {
-                        response = await handler(
-                                requestId,
-                                msgLength - sizeof(RequestType) - sizeof(uint),
-                                cancellationToken
-                            )
-                            .ConfigureAwait(false);
-                    }
-                    catch (HandlerException ex)
-                    {
-                        response = BuildStatus(
-                            requestId,
-                            ex.Status,
-                            ex.HasExplicitMessage ? ex.Message : null
-                        );
-                    }
-                    catch (Exception ex)
-                    {
-                        TraceSource.TraceEvent(
-                            TraceEventType.Error,
-                            TraceEventIds.SFTPServer_SendingResponse,
-                            "Uncaught exception while responding to request #{0} of type {1}: {2}",
-                            requestId,
-                            requestType,
-                            ex
-                        );
-                        response = BuildStatus(requestId, Status.Failure);
-                    }
-                }
-                else
-                {
-                    response = BuildStatus(requestId, Status.OperationUnsupported);
-                }
+                SFTPResponse response = await BuildResponseAsync(
+                        requestId,
+                        requestType,
+                        msgLength,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+                response = EnsureStatusProtocolVersion(response);
                 TraceSource.TraceEvent(
                     TraceEventType.Verbose,
                     TraceEventIds.SFTPServer_SendingResponse,
@@ -192,6 +163,63 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
             // Write response
             await writer.Flush(cancellationToken).ConfigureAwait(false);
         } while (!cancellationToken.IsCancellationRequested && msgLength > 0);
+    }
+
+    private async Task<SFTPResponse> BuildResponseAsync(
+        uint requestId,
+        RequestType requestType,
+        uint msgLength,
+        CancellationToken cancellationToken
+    )
+    {
+        if (!messageHandlers.TryGetValue(requestType, out MessageHandler? handler))
+        {
+            return BuildStatus(requestId, Status.OperationUnsupported);
+        }
+        try
+        {
+            return await handler(
+                    requestId,
+                    msgLength - sizeof(RequestType) - sizeof(uint),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+        }
+        catch (HandlerException ex)
+        {
+            return BuildStatus(requestId, ex.Status, ex.HasExplicitMessage ? ex.Message : null);
+        }
+        catch (Exception ex)
+        {
+            TraceSource.TraceEvent(
+                TraceEventType.Error,
+                TraceEventIds.SFTPServer_SendingResponse,
+                "Uncaught exception while responding to request #{0} of type {1}: {2}",
+                requestId,
+                requestType,
+                ex
+            );
+            return BuildStatus(requestId, Status.Failure);
+        }
+    }
+
+    private SFTPResponse EnsureStatusProtocolVersion(SFTPResponse response)
+    {
+        if (
+            protocolVersion >= 3
+            && response is SFTPStatus statusResponse
+            && (statusResponse.LanguageTag == null || statusResponse.ErrorMessage == null)
+        )
+        {
+            return statusResponse with
+            {
+                LanguageTag = statusResponse.LanguageTag ?? string.Empty,
+                ErrorMessage =
+                    statusResponse.ErrorMessage
+                    ?? sftpHandler.GetDefaultStatusString(statusResponse.Status),
+            };
+        }
+        return response;
     }
 
     private async Task InitHandler(
@@ -516,7 +544,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         {
             return new(requestId, status)
             {
-                ErrorMessage = errorMessage ?? GetStatusString(status),
+                ErrorMessage = errorMessage ?? sftpHandler.GetDefaultStatusString(status),
                 LanguageTag = string.Empty,
             };
         }
@@ -525,21 +553,6 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
             return new(requestId, status);
         }
     }
-
-    private static string GetStatusString(Status status) =>
-        status switch
-        {
-            Status.Ok => "Success",
-            Status.EndOfFile => "End of file",
-            Status.NoSuchFile => "No such file",
-            Status.PermissionDenied => "Permission denied",
-            Status.Failure => "Failure",
-            Status.BadMessage => "Bad message",
-            Status.NoConnection => "No connection",
-            Status.ConnectionLost => "Connection lost",
-            Status.OperationUnsupported => "Operation unsupported",
-            _ => "Unknown error",
-        };
 
     /// <inheritdoc/>
     public void Dispose()
