@@ -125,7 +125,11 @@ public static class AccessFlagsExtensionMethods
     /// </summary>
     public static FileAccess ToFileAccess(this AccessFlags flags)
     {
-        FileAccess fileAccess = FileAccess.Read;
+        FileAccess fileAccess = 0;
+        if (flags.HasFlag(AccessFlags.Read))
+        {
+            fileAccess |= FileAccess.Read;
+        }
         if (flags.HasFlag(AccessFlags.Write))
         {
             fileAccess |= FileAccess.Write;
