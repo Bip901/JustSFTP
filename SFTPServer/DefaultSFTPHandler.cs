@@ -272,6 +272,11 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
     {
         if (TryGetFSObject(path, out FileSystemInfo? fileSystemInfo))
         {
+            if (attributes.FileSize != null && fileSystemInfo is FileInfo fileInfo)
+            {
+                using FileStream stream = fileInfo.Open(FileMode.Open, FileAccess.Write);
+                stream.SetLength((long)attributes.FileSize);
+            }
             if (attributes.LastAccessedTime != null)
             {
                 fileSystemInfo.LastAccessTimeUtc = attributes.LastAccessedTime.Value.UtcDateTime;
