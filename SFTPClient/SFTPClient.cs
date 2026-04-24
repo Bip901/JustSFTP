@@ -196,6 +196,7 @@ public class SFTPClient : IDisposable
     /// <param name="path">The remote path of the file to open.</param>
     /// <param name="flags">The access flags, e.g. read/write.</param>
     /// <param name="attributes">The initial attributes for the file. Default values will be used for those attributes that are not specified.</param>
+    /// <param name="allowSeeking">Whether the resulting stream should be seekable. If true, an additional round-trip request is made to find out the file length. Note: when opening in Append mode, this request is made regardless, so you might as well pass true here.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
     /// <exception cref="HandlerException"/>
     /// <exception cref="InvalidDataException"/>
@@ -205,6 +206,7 @@ public class SFTPClient : IDisposable
         string path,
         AccessFlags flags,
         SFTPAttributes attributes,
+        bool allowSeeking = false,
         CancellationToken cancellationToken = default
     )
     {
@@ -213,14 +215,50 @@ public class SFTPClient : IDisposable
                 cancellationToken
             )
             .ConfigureAwait(false);
-        SFTPHandleResponse handleResponse = CheckResponseTypeAndStatus<SFTPHandleResponse>(
-            response
-        );
+        byte[] handle = CheckResponseTypeAndStatus<SFTPHandleResponse>(response).Handle;
+        long length = -1;
+        long initialPosition = 0;
+        if (allowSeeking || flags.HasFlag(AccessFlags.Append))
+        {
+            try
+            {
+                SFTPResponse statResponse = await RequestAsync(
+                        new SFTPFStatRequest(GetNextRequestId(), handle),
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+                SFTPAttributes attrs = CheckResponseTypeAndStatus<SFTPAttributesResponse>(
+                    statResponse
+                ).Attrs;
+                length = (long)(
+                    attrs.FileSize
+                    ?? throw new InvalidDataException("FStat response contains no file size")
+                );
+                if (length < 0)
+                {
+                    throw new InvalidDataException(
+                        $"FStat response returned a large file size, overflowed to {length}."
+                    );
+                }
+            }
+            catch
+            {
+                await CloseFileAsync(handle, cancellationToken).ConfigureAwait(false);
+                throw;
+            }
+            if (flags.HasFlag(AccessFlags.Append))
+            {
+                initialPosition = length;
+            }
+        }
         return new SFTPFileStream(
             this,
-            handleResponse.Handle,
+            handle,
             flags.HasFlag(AccessFlags.Read),
-            flags.HasFlag(AccessFlags.Write)
+            flags.HasFlag(AccessFlags.Write),
+            allowSeeking,
+            length,
+            initialPosition
         );
     }
 

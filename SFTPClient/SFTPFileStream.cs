@@ -13,9 +13,10 @@ internal class SFTPFileStream : Stream
 
     public override bool CanWrite => canWrite;
 
-    public override bool CanSeek => false;
+    public override bool CanSeek => canSeek;
 
-    public override long Length => throw new NotSupportedException();
+    public override long Length => length == -1 ? throw new NotSupportedException() : length;
+    private readonly long length;
 
     public override long Position
     {
@@ -28,14 +29,30 @@ internal class SFTPFileStream : Stream
     private readonly byte[] fileHandle;
     private readonly bool canRead;
     private readonly bool canWrite;
+    private readonly bool canSeek;
     private bool hasSentCloseRequest;
 
-    internal SFTPFileStream(SFTPClient client, byte[] fileHandle, bool canRead, bool canWrite)
+    internal SFTPFileStream(
+        SFTPClient client,
+        byte[] fileHandle,
+        bool canRead,
+        bool canWrite,
+        bool canSeek,
+        long length = -1,
+        long initialPosition = 0
+    )
     {
         this.client = client;
         this.fileHandle = fileHandle;
         this.canRead = canRead;
         this.canWrite = canWrite;
+        this.canSeek = canSeek;
+        if (canSeek && length == -1)
+        {
+            throw new ArgumentException($"If {nameof(canSeek)} is true, length must be provided.", nameof(length));
+        }
+        this.length = length;
+        position = initialPosition;
     }
 
     public override async ValueTask<int> ReadAsync(
@@ -117,23 +134,26 @@ internal class SFTPFileStream : Stream
 
     public override long Seek(long offset, SeekOrigin origin)
     {
-        switch (origin)
+        if (!canSeek)
         {
-            case SeekOrigin.Begin:
-                break;
-            case SeekOrigin.Current:
-                break;
-            case SeekOrigin.End:
-                break;
+            throw new NotSupportedException();
         }
-        // TODO
-        throw new NotSupportedException();
+        return origin switch
+        {
+            SeekOrigin.Begin => position = offset,
+            SeekOrigin.Current => position += offset,
+            SeekOrigin.End => position = length + offset,
+            _ => throw new ArgumentOutOfRangeException(nameof(origin)),
+        };
     }
 
+    /// <summary>
+    /// Since this method is not async, you should use <see cref="SFTPClient.SetStatAsync"/> instead.
+    /// </summary>
+    /// <exception cref="NotSupportedException"></exception>
     public override void SetLength(long value)
     {
-        // TODO
-        throw new NotSupportedException();
+        throw new NotSupportedException("Use SetStatAsync instead.");
     }
 
     public override async ValueTask DisposeAsync()

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Client;
@@ -57,7 +58,7 @@ public class TestEndToEnd
         await using (
             Stream fileStream = await client.OpenFileAsync(
                 "/example.txt",
-                Protocol.Enums.AccessFlags.Read,
+                AccessFlags.Read,
                 SFTPAttributes.DummyFile
             )
         )
@@ -67,6 +68,48 @@ public class TestEndToEnd
             Assert.Equal(exampleFileContents, fileContents);
         }
 
+        // Test file writing
+        const string newContents = "A new line\n";
+        await using (
+            Stream fileStream = await client.OpenFileAsync(
+                "/example.txt",
+                AccessFlags.Write | AccessFlags.Append,
+                SFTPAttributes.DummyFile
+            )
+        )
+        {
+            await fileStream.WriteAsync(Encoding.UTF8.GetBytes(newContents));
+        }
+        await using (
+            Stream fileStream = await client.OpenFileAsync(
+                "/example.txt",
+                AccessFlags.Read | AccessFlags.Write,
+                SFTPAttributes.DummyFile
+            )
+        )
+        {
+            using StreamReader reader = new(fileStream, leaveOpen: true);
+            string fileContents = await reader.ReadToEndAsync();
+            Assert.Equal(exampleFileContents + newContents, fileContents);
+        }
+
+        // Test SetStat (and restore original file contents)
+        DateTimeOffset utcNow = DateTimeOffset.FromUnixTimeSeconds(
+            DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        ); // Convert to seconds accuracy because that's the accuracy preserved in SFTP
+        await client.SetStatAsync(
+            "/example.txt",
+            new SFTPAttributes()
+            {
+                LastModifiedTime = utcNow,
+                LastAccessedTime = utcNow,
+                FileSize = (ulong)exampleFileContents.Length,
+            }
+        );
+        SFTPAttributes serverAttributes = await client.StatAsync("/example.txt");
+        Assert.Equal((ulong)exampleFileContents.Length, serverAttributes.FileSize);
+        Assert.Equal(utcNow, serverAttributes.LastModifiedTime);
+
         // Test ReadDir
         HashSet<string> names = [];
         await foreach (SFTPName child in client.IterDirAsync("/test-dir"))
@@ -74,19 +117,6 @@ public class TestEndToEnd
             names.Add(child.Name);
         }
         Assert.Equivalent(expectedDirectoryListing, names);
-
-        // Test Stat
-        // Convert to seconds accuracy because that's the accuracy preserved in SFTP
-        DateTimeOffset utcNow = DateTimeOffset.FromUnixTimeSeconds(
-            DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-        );
-        await client.SetStatAsync(
-            "/example.txt",
-            new SFTPAttributes() { LastModifiedTime = utcNow, LastAccessedTime = utcNow }
-        );
-        SFTPAttributes serverAttributes = await client.StatAsync("/example.txt");
-        Assert.Equal((ulong)exampleFileContents.Length, serverAttributes.FileSize);
-        Assert.Equal(utcNow, serverAttributes.LastModifiedTime);
 
         // Test extensions
         Assert.Equal(
