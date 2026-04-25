@@ -16,7 +16,7 @@ internal class SFTPFileStream : Stream
     public override bool CanSeek => canSeek;
 
     public override long Length => length == -1 ? throw new NotSupportedException() : length;
-    private readonly long length;
+    private long length;
 
     public override long Position
     {
@@ -85,6 +85,10 @@ internal class SFTPFileStream : Stream
             .WriteAsync(fileHandle, (ulong)position, buffer.ToArray(), cancellationToken)
             .ConfigureAwait(false);
         position += buffer.Length;
+        if (length != -1 && length < position)
+        {
+            length = position;
+        }
     }
 
     public override void Flush()
