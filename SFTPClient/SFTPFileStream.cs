@@ -7,7 +7,7 @@ using JustSFTP.Protocol.Enums;
 
 namespace JustSFTP.Client;
 
-internal class SFTPFileStream : Stream
+internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
 {
     public override bool CanRead => canRead;
 
@@ -31,6 +31,7 @@ internal class SFTPFileStream : Stream
     private readonly bool canWrite;
     private readonly bool canSeek;
     private bool hasSentCloseRequest;
+    private CancellationToken disposeCancellationToken;
 
     internal SFTPFileStream(
         SFTPClient client,
@@ -170,7 +171,7 @@ internal class SFTPFileStream : Stream
             return;
         }
         hasSentCloseRequest = true;
-        _ = Task.Run(() => client.CloseFileAsync(fileHandle));
+        await client.CloseFileAsync(fileHandle, disposeCancellationToken).ConfigureAwait(false);
     }
 
     protected override void Dispose(bool disposing)
@@ -183,5 +184,10 @@ internal class SFTPFileStream : Stream
                 _ = Task.Run(() => valueTask);
             }
         }
+    }
+
+    public void SetDisposeCancellationToken(CancellationToken cancellationToken)
+    {
+        this.disposeCancellationToken = cancellationToken;
     }
 }
