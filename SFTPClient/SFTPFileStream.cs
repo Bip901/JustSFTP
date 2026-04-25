@@ -49,7 +49,10 @@ internal class SFTPFileStream : Stream
         this.canSeek = canSeek;
         if (canSeek && length == -1)
         {
-            throw new ArgumentException($"If {nameof(canSeek)} is true, length must be provided.", nameof(length));
+            throw new ArgumentException(
+                $"If {nameof(canSeek)} is true, length must be provided.",
+                nameof(length)
+            );
         }
         this.length = length;
         position = initialPosition;
@@ -167,7 +170,7 @@ internal class SFTPFileStream : Stream
             return;
         }
         hasSentCloseRequest = true;
-        await client.CloseFileAsync(fileHandle).ConfigureAwait(false);
+        _ = Task.Run(() => client.CloseFileAsync(fileHandle));
     }
 
     protected override void Dispose(bool disposing)
@@ -177,7 +180,7 @@ internal class SFTPFileStream : Stream
             ValueTask valueTask = DisposeAsync();
             if (!valueTask.IsCompletedSuccessfully)
             {
-                valueTask.AsTask().Wait();
+                _ = Task.Run(() => valueTask);
             }
         }
     }
