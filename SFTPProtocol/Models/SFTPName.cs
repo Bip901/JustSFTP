@@ -38,6 +38,6 @@ public record SFTPName(string Name, string LongName, SFTPAttributes Attributes)
     /// <inheritdoc/>
     public override string ToString()
     {
-        return LongName;
+        return LongName.Length == 0 ? Name : LongName;
     }
 }
