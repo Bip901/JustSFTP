@@ -33,10 +33,9 @@ public class SFTPHandleCollection : IDisposable
         }
     }
 
-    public record OpenSFTPDirectory(
-        SFTPPath Path,
-        Func<OpenSFTPDirectory, IEnumerable<SFTPName>> GetChildren
-    ) : OpenSFTPFileOrDirectory(Path), IEnumerator<SFTPName>
+    public record OpenSFTPDirectory(SFTPPath Path, Func<OpenSFTPDirectory, IEnumerable<SFTPName>> GetChildren)
+        : OpenSFTPFileOrDirectory(Path),
+            IEnumerator<SFTPName>
     {
         /// <exception cref="InvalidOperationException"/>
         public SFTPName Current => inner?.Current ?? throw new InvalidOperationException();
@@ -93,9 +92,7 @@ public class SFTPHandleCollection : IDisposable
         if (IsFull)
         {
             item.Dispose();
-            throw new InvalidOperationException(
-                $"Exceeded max concurrent handles ({maxConcurrentHandles})"
-            );
+            throw new InvalidOperationException($"Exceeded max concurrent handles ({maxConcurrentHandles})");
         }
         byte[] handle = CreateHandle();
         openFiles.Add(new SFTPHandle(handle), item);
@@ -133,10 +130,8 @@ public class SFTPHandleCollection : IDisposable
     public Stream RequireFileStream(byte[] handle)
     {
         if (
-            !openFiles.TryGetValue(
-                new SFTPHandle(handle),
-                out OpenSFTPFileOrDirectory? fileOrDirectory
-            ) || fileOrDirectory is not OpenSFTPFile file
+            !openFiles.TryGetValue(new SFTPHandle(handle), out OpenSFTPFileOrDirectory? fileOrDirectory)
+            || fileOrDirectory is not OpenSFTPFile file
         )
         {
             throw new HandlerException(Status.NoSuchFile);
@@ -152,10 +147,8 @@ public class SFTPHandleCollection : IDisposable
     public OpenSFTPDirectory RequireDirectory(byte[] handle)
     {
         if (
-            !openFiles.TryGetValue(
-                new SFTPHandle(handle),
-                out OpenSFTPFileOrDirectory? fileOrDirectory
-            ) || fileOrDirectory is not OpenSFTPDirectory directory
+            !openFiles.TryGetValue(new SFTPHandle(handle), out OpenSFTPFileOrDirectory? fileOrDirectory)
+            || fileOrDirectory is not OpenSFTPDirectory directory
         )
         {
             throw new HandlerException(Status.NoSuchFile);

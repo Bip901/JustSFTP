@@ -27,10 +27,8 @@ public class SFTPClient : IDisposable
         SFTPResponse.ReadAsyncMethod? ExtendedReadAsyncMethod = null
     )
     {
-        public readonly TaskCompletionSource<SFTPResponse> TaskCompletionSource =
-            TaskCompletionSource;
-        public readonly SFTPResponse.ReadAsyncMethod? ExtendedReadAsyncMethod =
-            ExtendedReadAsyncMethod;
+        public readonly TaskCompletionSource<SFTPResponse> TaskCompletionSource = TaskCompletionSource;
+        public readonly SFTPResponse.ReadAsyncMethod? ExtendedReadAsyncMethod = ExtendedReadAsyncMethod;
     }
 
     /// <summary>
@@ -136,10 +134,7 @@ public class SFTPClient : IDisposable
                     .ReadAsync(
                         reader,
                         cancellationToken,
-                        requestId =>
-                            requestsAwaitingResponse
-                                .GetValueOrDefault(requestId)
-                                ?.ExtendedReadAsyncMethod
+                        requestId => requestsAwaitingResponse.GetValueOrDefault(requestId)?.ExtendedReadAsyncMethod
                     )
                     .ConfigureAwait(false);
                 TraceSource.TraceEvent(
@@ -148,12 +143,7 @@ public class SFTPClient : IDisposable
                     "RECV: {0}",
                     response
                 );
-                if (
-                    !requestsAwaitingResponse.TryRemove(
-                        response.RequestId,
-                        out PendingRequest? pendingRequest
-                    )
-                )
+                if (!requestsAwaitingResponse.TryRemove(response.RequestId, out PendingRequest? pendingRequest))
                 {
                     TraceSource.TraceEvent(
                         TraceEventType.Warning,
@@ -172,10 +162,7 @@ public class SFTPClient : IDisposable
             {
                 ex = new ObjectDisposedException(nameof(SFTPClient), ex);
             }
-            if (
-                ex is not OperationCanceledException
-                && !(ex is ObjectDisposedException && writerSempahore == null)
-            ) // not canceled nor disposed
+            if (ex is not OperationCanceledException && !(ex is ObjectDisposedException && writerSempahore == null)) // not canceled nor disposed
             {
                 TraceSource.TraceEvent(
                     TraceEventType.Error,
@@ -227,12 +214,9 @@ public class SFTPClient : IDisposable
                         cancellationToken
                     )
                     .ConfigureAwait(false);
-                SFTPAttributes attrs = CheckResponseTypeAndStatus<SFTPAttributesResponse>(
-                    statResponse
-                ).Attrs;
+                SFTPAttributes attrs = CheckResponseTypeAndStatus<SFTPAttributesResponse>(statResponse).Attrs;
                 length = (long)(
-                    attrs.FileSize
-                    ?? throw new InvalidDataException("FStat response contains no file size")
+                    attrs.FileSize ?? throw new InvalidDataException("FStat response contains no file size")
                 );
                 if (length < 0)
                 {
@@ -296,10 +280,7 @@ public class SFTPClient : IDisposable
             catch (Exception ex)
             {
                 await CloseFileAsync(handle, cancellationToken).ConfigureAwait(false);
-                if (
-                    ex is HandlerException handlerException
-                    && handlerException.Status == Status.EndOfFile
-                )
+                if (ex is HandlerException handlerException && handlerException.Status == Status.EndOfFile)
                 {
                     break;
                 }
@@ -359,10 +340,7 @@ public class SFTPClient : IDisposable
     /// <exception cref="ObjectDisposedException"/>
     public async Task RemoveAsync(string path, CancellationToken cancellationToken = default)
     {
-        SFTPResponse response = await RequestAsync(
-                new SFTPRemoveRequest(GetNextRequestId(), path),
-                cancellationToken
-            )
+        SFTPResponse response = await RequestAsync(new SFTPRemoveRequest(GetNextRequestId(), path), cancellationToken)
             .ConfigureAwait(false);
         CheckResponseTypeAndStatus<SFTPStatus>(response);
     }
@@ -374,11 +352,7 @@ public class SFTPClient : IDisposable
     /// <exception cref="InvalidDataException"/>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public async Task RenameAsync(
-        string oldPath,
-        string newPath,
-        CancellationToken cancellationToken = default
-    )
+    public async Task RenameAsync(string oldPath, string newPath, CancellationToken cancellationToken = default)
     {
         SFTPResponse response = await RequestAsync(
                 new SFTPRenameRequest(GetNextRequestId(), oldPath, newPath),
@@ -407,10 +381,8 @@ public class SFTPClient : IDisposable
         SFTPRequest request = followSymLinks
             ? new SFTPStatRequest(GetNextRequestId(), path)
             : new SFTPLStatRequest(GetNextRequestId(), path);
-        SFTPResponse response = await RequestAsync(request, cancellationToken)
-            .ConfigureAwait(false);
-        SFTPAttributesResponse attributesResponse =
-            CheckResponseTypeAndStatus<SFTPAttributesResponse>(response);
+        SFTPResponse response = await RequestAsync(request, cancellationToken).ConfigureAwait(false);
+        SFTPAttributesResponse attributesResponse = CheckResponseTypeAndStatus<SFTPAttributesResponse>(response);
         return attributesResponse.Attrs;
     }
 
@@ -520,12 +492,7 @@ public class SFTPClient : IDisposable
     )
     {
         ObjectDisposedException.ThrowIf(writerSempahore == null, this);
-        TraceSource.TraceEvent(
-            TraceEventType.Verbose,
-            TraceEventIds.SFTPClient_SendingRequest,
-            "SEND: {0}",
-            request
-        );
+        TraceSource.TraceEvent(TraceEventType.Verbose, TraceEventIds.SFTPClient_SendingRequest, "SEND: {0}", request);
         TaskCompletionSource<SFTPResponse> taskCompletionSource = new();
         await writerSempahore.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -598,12 +565,8 @@ public class SFTPClient : IDisposable
         var serverExtensions = new Dictionary<string, string>();
         while (msglen > 0)
         {
-            (string name, int nameLength) = await reader
-                .ReadStringAndLength(cancellationToken)
-                .ConfigureAwait(false);
-            (string data, int dataLength) = await reader
-                .ReadStringAndLength(cancellationToken)
-                .ConfigureAwait(false);
+            (string name, int nameLength) = await reader.ReadStringAndLength(cancellationToken).ConfigureAwait(false);
+            (string data, int dataLength) = await reader.ReadStringAndLength(cancellationToken).ConfigureAwait(false);
             serverExtensions[name] = data;
             msglen -= (uint)(nameLength + dataLength);
         }
@@ -626,10 +589,7 @@ public class SFTPClient : IDisposable
     private static T CheckResponseTypeAndStatus<T>(SFTPResponse response)
         where T : SFTPResponse
     {
-        if (
-            response is SFTPStatus status
-            && (typeof(T) != typeof(SFTPStatus) || status.Status != Status.Ok)
-        )
+        if (response is SFTPStatus status && (typeof(T) != typeof(SFTPStatus) || status.Status != Status.Ok))
         {
             throw new HandlerException(status.Status);
         }

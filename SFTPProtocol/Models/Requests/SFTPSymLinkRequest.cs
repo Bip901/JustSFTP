@@ -8,17 +8,13 @@ namespace JustSFTP.Protocol.Models.Requests;
 /// <summary>
 /// SSH_FXP_SYMLINK
 /// </summary>
-public record SFTPSymLinkRequest(uint RequestId, string TargetPath, string LinkPath)
-    : SFTPRequest(RequestId)
+public record SFTPSymLinkRequest(uint RequestId, string TargetPath, string LinkPath) : SFTPRequest(RequestId)
 {
     /// <inheritdoc/>
     public override RequestType RequestType => RequestType.SymLink;
 
     /// <inheritdoc/>
-    public override async Task WriteAsync(
-        SshStreamWriter writer,
-        CancellationToken cancellationToken
-    )
+    public override async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(TargetPath, cancellationToken).ConfigureAwait(false);

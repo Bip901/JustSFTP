@@ -56,10 +56,7 @@ public class SshStreamWriter : IDisposable
         await Write(name.Attributes, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task Write(
-        SFTPAttributes attributes,
-        CancellationToken cancellationToken = default
-    )
+    public async Task Write(SFTPAttributes attributes, CancellationToken cancellationToken = default)
     {
         await Write(attributes.PFlags, cancellationToken).ConfigureAwait(false);
         if (attributes.FileSize != null)
@@ -85,8 +82,7 @@ public class SshStreamWriter : IDisposable
 
         if (attributes.ExtendedAttributes != null)
         {
-            await Write(attributes.ExtendedAttributes.Count, cancellationToken)
-                .ConfigureAwait(false);
+            await Write(attributes.ExtendedAttributes.Count, cancellationToken).ConfigureAwait(false);
             foreach (var pair in attributes.ExtendedAttributes)
             {
                 await Write(pair.Key, cancellationToken).ConfigureAwait(false);
@@ -95,13 +91,10 @@ public class SshStreamWriter : IDisposable
         }
     }
 
-    public async Task Write(
-        DateTimeOffset dateTime,
-        CancellationToken cancellationToken = default
-    ) => await Write((uint)dateTime.ToUnixTimeSeconds(), cancellationToken).ConfigureAwait(false);
+    public async Task Write(DateTimeOffset dateTime, CancellationToken cancellationToken = default) =>
+        await Write((uint)dateTime.ToUnixTimeSeconds(), cancellationToken).ConfigureAwait(false);
 
-    public Task Write(byte value, CancellationToken cancellationToken = default) =>
-        Write([value], cancellationToken);
+    public Task Write(byte value, CancellationToken cancellationToken = default) => Write([value], cancellationToken);
 
     public Task Write(int value, CancellationToken cancellationToken = default) =>
         Write((uint)value, cancellationToken);

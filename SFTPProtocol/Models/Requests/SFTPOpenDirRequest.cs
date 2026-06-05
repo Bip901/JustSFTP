@@ -14,10 +14,7 @@ public record SFTPOpenDirRequest(uint RequestId, string Path) : SFTPRequest(Requ
     public override RequestType RequestType => RequestType.OpenDir;
 
     /// <inheritdoc/>
-    public override async Task WriteAsync(
-        SshStreamWriter writer,
-        CancellationToken cancellationToken
-    )
+    public override async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(Path, cancellationToken).ConfigureAwait(false);

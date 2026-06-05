@@ -22,9 +22,7 @@ public class Program
 
         var serviceCollection = new ServiceCollection();
         serviceCollection.AddLogging(c => c.ClearProviders().AddNLog());
-        serviceCollection.Configure<SFTPServerOptions>(options =>
-            configuration.GetSection("Server").Bind(options)
-        );
+        serviceCollection.Configure<SFTPServerOptions>(options => configuration.GetSection("Server").Bind(options));
         var serviceprovider = serviceCollection.BuildServiceProvider();
 
         _logger = serviceprovider.GetRequiredService<ILogger<Program>>();

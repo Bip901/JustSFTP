@@ -15,10 +15,7 @@ public record SFTPHandleResponse(uint RequestId, byte[] Handle) : SFTPResponse(R
     public override ResponseType ResponseType => ResponseType.Handle;
 
     /// <inheritdoc/>
-    public override async Task WriteAsync(
-        SshStreamWriter writer,
-        CancellationToken cancellationToken
-    )
+    public override async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(Handle.Length, cancellationToken).ConfigureAwait(false);

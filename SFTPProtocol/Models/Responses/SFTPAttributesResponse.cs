@@ -15,10 +15,7 @@ public record SFTPAttributesResponse(uint RequestId, SFTPAttributes Attrs) : SFT
     public override ResponseType ResponseType => ResponseType.Attributes;
 
     /// <inheritdoc/>
-    public override async Task WriteAsync(
-        SshStreamWriter writer,
-        CancellationToken cancellationToken
-    )
+    public override async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(Attrs, cancellationToken).ConfigureAwait(false);

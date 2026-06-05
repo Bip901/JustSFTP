@@ -50,19 +50,13 @@ internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
         this.canSeek = canSeek;
         if (canSeek && length == -1)
         {
-            throw new ArgumentException(
-                $"If {nameof(canSeek)} is true, length must be provided.",
-                nameof(length)
-            );
+            throw new ArgumentException($"If {nameof(canSeek)} is true, length must be provided.", nameof(length));
         }
         this.length = length;
         position = initialPosition;
     }
 
-    public override async ValueTask<int> ReadAsync(
-        Memory<byte> buffer,
-        CancellationToken cancellationToken = default
-    )
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
         byte[] data;
         try
@@ -85,9 +79,7 @@ internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
         CancellationToken cancellationToken = default
     )
     {
-        await client
-            .WriteAsync(fileHandle, (ulong)position, buffer.ToArray(), cancellationToken)
-            .ConfigureAwait(false);
+        await client.WriteAsync(fileHandle, (ulong)position, buffer.ToArray(), cancellationToken).ConfigureAwait(false);
         position += buffer.Length;
         if (length != -1 && length < position)
         {
@@ -100,15 +92,9 @@ internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
         // This stream does not buffer anyway
     }
 
-    public override async Task<int> ReadAsync(
-        byte[] buffer,
-        int offset,
-        int count,
-        CancellationToken cancellationToken
-    )
+    public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
-        return await ReadAsync(buffer.AsMemory(offset, count), cancellationToken)
-            .ConfigureAwait(false);
+        return await ReadAsync(buffer.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
     }
 
     public override int Read(byte[] buffer, int offset, int count)
@@ -121,12 +107,7 @@ internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
         return valueTask.AsTask().Result; // Block until task completes
     }
 
-    public override async Task WriteAsync(
-        byte[] buffer,
-        int offset,
-        int count,
-        CancellationToken cancellationToken
-    )
+    public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
         await WriteAsync(buffer.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
     }

@@ -35,20 +35,14 @@ public class SshStreamReader
         (await ReadBinary(1, cancellationToken).ConfigureAwait(false))[0];
 
     public async Task<uint> ReadUInt32(CancellationToken cancellationToken = default) =>
-        BinaryPrimitives.ReadUInt32BigEndian(
-            await ReadBinary(4, cancellationToken).ConfigureAwait(false)
-        );
+        BinaryPrimitives.ReadUInt32BigEndian(await ReadBinary(4, cancellationToken).ConfigureAwait(false));
 
     public async Task<ulong> ReadUInt64(CancellationToken cancellationToken = default) =>
-        BinaryPrimitives.ReadUInt64BigEndian(
-            await ReadBinary(8, cancellationToken).ConfigureAwait(false)
-        );
+        BinaryPrimitives.ReadUInt64BigEndian(await ReadBinary(8, cancellationToken).ConfigureAwait(false));
 
     public async Task<string> ReadString(CancellationToken cancellationToken = default)
     {
-        return SFTPStringEncoding.GetString(
-            await ReadBinary(cancellationToken).ConfigureAwait(false)
-        );
+        return SFTPStringEncoding.GetString(await ReadBinary(cancellationToken).ConfigureAwait(false));
     }
 
     public async Task<(string value, int totalLength)> ReadStringAndLength(
@@ -71,15 +65,9 @@ public class SshStreamReader
     public async Task<SFTPAttributes> ReadAttributes(CancellationToken cancellationToken = default)
     {
         PFlags flags = (PFlags)await ReadUInt32(cancellationToken).ConfigureAwait(false);
-        ulong? size = flags.HasFlag(PFlags.Size)
-            ? await ReadUInt64(cancellationToken).ConfigureAwait(false)
-            : null;
-        uint? owner = flags.HasFlag(PFlags.UidGid)
-            ? await ReadUInt32(cancellationToken).ConfigureAwait(false)
-            : null;
-        uint? group = flags.HasFlag(PFlags.UidGid)
-            ? await ReadUInt32(cancellationToken).ConfigureAwait(false)
-            : null;
+        ulong? size = flags.HasFlag(PFlags.Size) ? await ReadUInt64(cancellationToken).ConfigureAwait(false) : null;
+        uint? owner = flags.HasFlag(PFlags.UidGid) ? await ReadUInt32(cancellationToken).ConfigureAwait(false) : null;
+        uint? group = flags.HasFlag(PFlags.UidGid) ? await ReadUInt32(cancellationToken).ConfigureAwait(false) : null;
         Permissions? permissions = flags.HasFlag(PFlags.Permissions)
             ? (Permissions)await ReadUInt32(cancellationToken).ConfigureAwait(false)
             : null;
@@ -114,10 +102,7 @@ public class SshStreamReader
     }
 
     public async Task<byte[]> ReadBinary(CancellationToken cancellationToken = default) =>
-        await ReadBinary(
-                (int)await ReadUInt32(cancellationToken).ConfigureAwait(false),
-                cancellationToken
-            )
+        await ReadBinary((int)await ReadUInt32(cancellationToken).ConfigureAwait(false), cancellationToken)
             .ConfigureAwait(false);
 
     public async Task<byte[]> ReadBinary(int length, CancellationToken cancellationToken = default)

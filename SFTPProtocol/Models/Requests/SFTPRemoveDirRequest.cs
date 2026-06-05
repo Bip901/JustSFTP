@@ -14,10 +14,7 @@ public record SFTPRemoveDirRequest(uint RequestId, string Path) : SFTPRequest(Re
     public override RequestType RequestType => RequestType.RemoveDir;
 
     /// <inheritdoc/>
-    public override async Task WriteAsync(
-        SshStreamWriter writer,
-        CancellationToken cancellationToken
-    )
+    public override async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(Path, cancellationToken).ConfigureAwait(false);

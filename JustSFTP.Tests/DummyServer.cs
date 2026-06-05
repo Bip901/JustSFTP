@@ -33,21 +33,12 @@ public sealed class DummyServer : IAsyncDisposable
         ClientWriteStream = clientWriteStream;
     }
 
-    public static DummyServer Run(
-        SFTPExtensions? serverExtensions = null,
-        TraceSource? traceSource = null
-    )
+    public static DummyServer Run(SFTPExtensions? serverExtensions = null, TraceSource? traceSource = null)
     {
         AnonymousPipeServerStream clientWrite = new(PipeDirection.Out);
-        AnonymousPipeClientStream serverRead = new(
-            PipeDirection.In,
-            clientWrite.ClientSafePipeHandle
-        );
+        AnonymousPipeClientStream serverRead = new(PipeDirection.In, clientWrite.ClientSafePipeHandle);
         AnonymousPipeServerStream serverWrite = new(PipeDirection.Out);
-        AnonymousPipeClientStream clientRead = new(
-            PipeDirection.In,
-            serverWrite.ClientSafePipeHandle
-        );
+        AnonymousPipeClientStream clientRead = new(PipeDirection.In, serverWrite.ClientSafePipeHandle);
 
         CancellationTokenSource serverCancel = new();
         string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;

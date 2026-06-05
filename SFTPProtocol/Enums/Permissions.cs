@@ -31,12 +31,5 @@ public enum Permissions : uint
 
     DefaultFile = UserRead | UserWrite | GroupRead | OtherRead | RegularFile,
     DefaultDirectory =
-        UserRead
-        | UserWrite
-        | UserExecute
-        | GroupRead
-        | GroupExecute
-        | OtherRead
-        | OtherExecute
-        | Directory,
+        UserRead | UserWrite | UserExecute | GroupRead | GroupExecute | OtherRead | OtherExecute | Directory,
 }

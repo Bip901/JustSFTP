@@ -35,10 +35,7 @@ public class TestEndToEnd
         clientTraceSource.Listeners.Add(new ConsoleTraceListener(useErrorStream: true));
         TraceSource serverTraceSource = new(nameof(SFTPServer), SourceLevels.All);
         serverTraceSource.Listeners.Add(new ConsoleTraceListener(useErrorStream: true));
-        await using DummyServer dummyServer = DummyServer.Run(
-            new SFTPExtensions(serverExtensions),
-            serverTraceSource
-        );
+        await using DummyServer dummyServer = DummyServer.Run(new SFTPExtensions(serverExtensions), serverTraceSource);
         using SFTPClient client = new(
             dummyServer.ClientReadStream,
             dummyServer.ClientWriteStream,
@@ -56,11 +53,7 @@ public class TestEndToEnd
 
         // Test file reading
         await using (
-            Stream fileStream = await client.OpenFileAsync(
-                "/example.txt",
-                AccessFlags.Read,
-                SFTPAttributes.DummyFile
-            )
+            Stream fileStream = await client.OpenFileAsync("/example.txt", AccessFlags.Read, SFTPAttributes.DummyFile)
         )
         {
             using StreamReader reader = new(fileStream, leaveOpen: true);
@@ -94,9 +87,7 @@ public class TestEndToEnd
         }
 
         // Test SetStat (and restore original file contents)
-        DateTimeOffset utcNow = DateTimeOffset.FromUnixTimeSeconds(
-            DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-        ); // Convert to seconds accuracy because that's the accuracy preserved in SFTP
+        DateTimeOffset utcNow = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds()); // Convert to seconds accuracy because that's the accuracy preserved in SFTP
         await client.SetStatAsync(
             "/example.txt",
             new SFTPAttributes()

@@ -16,10 +16,7 @@ public abstract record SFTPExtendedRequest(uint RequestId, string RequestName) :
     public override RequestType RequestType => RequestType.Extended;
 
     /// <inheritdoc/>
-    public override async Task WriteAsync(
-        SshStreamWriter writer,
-        CancellationToken cancellationToken
-    )
+    public override async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(RequestName, cancellationToken).ConfigureAwait(false);

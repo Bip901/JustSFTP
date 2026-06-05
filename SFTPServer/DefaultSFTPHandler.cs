@@ -104,18 +104,12 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         await stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
     }
 
-    public virtual Task<SFTPAttributes> LStat(
-        SFTPPath path,
-        CancellationToken cancellationToken = default
-    ) =>
+    public virtual Task<SFTPAttributes> LStat(SFTPPath path, CancellationToken cancellationToken = default) =>
         TryGetFSObject(path, out var fso)
             ? Task.FromResult(SFTPAttributes.FromFileSystemInfo(fso))
             : throw new HandlerException(Status.NoSuchFile);
 
-    public virtual Task<SFTPAttributes> FStat(
-        byte[] handle,
-        CancellationToken cancellationToken = default
-    ) =>
+    public virtual Task<SFTPAttributes> FStat(byte[] handle, CancellationToken cancellationToken = default) =>
         openHandles.TryGet(handle, out var openFile)
             ? Stat(openFile.Path, cancellationToken)
             : throw new HandlerException(Status.NoSuchFile);
@@ -135,10 +129,7 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
             ? SetStat(openFile.Path, attributes, cancellationToken)
             : throw new HandlerException(Status.NoSuchFile);
 
-    public virtual Task<byte[]> OpenDir(
-        SFTPPath path,
-        CancellationToken cancellationToken = default
-    )
+    public virtual Task<byte[]> OpenDir(SFTPPath path, CancellationToken cancellationToken = default)
     {
         FileSystemInfo[] fileSystemInfos;
         try
@@ -159,10 +150,7 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         );
     }
 
-    public virtual Task<IEnumerator<SFTPName>> ReadDir(
-        byte[] handle,
-        CancellationToken cancellationToken = default
-    )
+    public virtual Task<IEnumerator<SFTPName>> ReadDir(byte[] handle, CancellationToken cancellationToken = default)
     {
         return Task.FromResult((IEnumerator<SFTPName>)openHandles.RequireDirectory(handle));
     }
@@ -177,11 +165,7 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         throw new HandlerException(Status.NoSuchFile);
     }
 
-    public virtual Task MakeDir(
-        SFTPPath path,
-        SFTPAttributes attributes,
-        CancellationToken cancellationToken = default
-    )
+    public virtual Task MakeDir(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(GetPhysicalPath(path));
         return Task.CompletedTask;
@@ -197,21 +181,13 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         throw new HandlerException(Status.NoSuchFile);
     }
 
-    public virtual Task<SFTPPath> RealPath(
-        SFTPPath path,
-        CancellationToken cancellationToken = default
-    ) => Task.FromResult(new SFTPPath(GetVirtualPath(path)));
+    public virtual Task<SFTPPath> RealPath(SFTPPath path, CancellationToken cancellationToken = default) =>
+        Task.FromResult(new SFTPPath(GetVirtualPath(path)));
 
-    public virtual Task<SFTPAttributes> Stat(
-        SFTPPath path,
-        CancellationToken cancellationToken = default
-    ) => LStat(path, cancellationToken);
+    public virtual Task<SFTPAttributes> Stat(SFTPPath path, CancellationToken cancellationToken = default) =>
+        LStat(path, cancellationToken);
 
-    public virtual Task Rename(
-        SFTPPath oldPath,
-        SFTPPath newPath,
-        CancellationToken cancellationToken = default
-    )
+    public virtual Task Rename(SFTPPath oldPath, SFTPPath newPath, CancellationToken cancellationToken = default)
     {
         if (TryGetFSObject(oldPath, out var fsOldObject) && fsOldObject is FileInfo)
         {
@@ -222,10 +198,7 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
     }
 
 #if NET6_0_OR_GREATER
-    public virtual Task<SFTPName> ReadLink(
-        SFTPPath path,
-        CancellationToken cancellationToken = default
-    )
+    public virtual Task<SFTPName> ReadLink(SFTPPath path, CancellationToken cancellationToken = default)
     {
         if (TryGetFSObject(path, out var fsObject) && fsObject.LinkTarget != null)
         {
@@ -234,11 +207,7 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         throw new HandlerException(Status.NoSuchFile);
     }
 
-    public virtual Task SymLink(
-        SFTPPath linkPath,
-        SFTPPath targetPath,
-        CancellationToken cancellationToken = default
-    )
+    public virtual Task SymLink(SFTPPath linkPath, SFTPPath targetPath, CancellationToken cancellationToken = default)
     {
         var link = GetPhysicalPath(linkPath);
         if (TryGetFSObject(targetPath, out var fsObject))
@@ -258,17 +227,11 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
     }
 #endif
 
-    public virtual string GetPhysicalPath(SFTPPath path) =>
-        Path.Join(root.Path, GetVirtualPath(path));
+    public virtual string GetPhysicalPath(SFTPPath path) => Path.Join(root.Path, GetVirtualPath(path));
 
-    public virtual string GetVirtualPath(SFTPPath path) =>
-        new Uri(_virtualroot, path.Path).LocalPath;
+    public virtual string GetVirtualPath(SFTPPath path) => new Uri(_virtualroot, path.Path).LocalPath;
 
-    private Task DoStat(
-        SFTPPath path,
-        SFTPAttributes attributes,
-        CancellationToken cancellationToken = default
-    )
+    private Task DoStat(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default)
     {
         if (TryGetFSObject(path, out FileSystemInfo? fileSystemInfo))
         {
@@ -291,10 +254,7 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         return Task.CompletedTask;
     }
 
-    private bool TryGetFSObject(
-        SFTPPath path,
-        [NotNullWhen(true)] out FileSystemInfo? fileSystemObject
-    )
+    private bool TryGetFSObject(SFTPPath path, [NotNullWhen(true)] out FileSystemInfo? fileSystemObject)
     {
         var resolved = GetPhysicalPath(path);
         if (Directory.Exists(resolved))

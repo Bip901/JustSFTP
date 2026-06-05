@@ -14,10 +14,7 @@ public record SFTPReadLinkRequest(uint RequestId, string Path) : SFTPRequest(Req
     public override RequestType RequestType => RequestType.ReadLink;
 
     /// <inheritdoc/>
-    public override async Task WriteAsync(
-        SshStreamWriter writer,
-        CancellationToken cancellationToken
-    )
+    public override async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(Path, cancellationToken).ConfigureAwait(false);

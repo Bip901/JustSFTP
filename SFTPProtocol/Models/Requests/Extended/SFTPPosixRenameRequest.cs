@@ -19,10 +19,7 @@ public record SFTPPosixRenameRequest(uint RequestId, string OldPath, string NewP
     public const string EXTENSION_NAME = "posix-rename@openssh.com";
 
     /// <inheritdoc/>
-    public override async Task WriteAsync(
-        SshStreamWriter writer,
-        CancellationToken cancellationToken
-    )
+    public override async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(OldPath, cancellationToken).ConfigureAwait(false);

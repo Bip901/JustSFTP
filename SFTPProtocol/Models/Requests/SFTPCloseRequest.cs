@@ -14,10 +14,7 @@ public record SFTPCloseRequest(uint RequestId, byte[] Handle) : SFTPRequest(Requ
     public override RequestType RequestType => RequestType.Close;
 
     /// <inheritdoc/>
-    public override async Task WriteAsync(
-        SshStreamWriter writer,
-        CancellationToken cancellationToken
-    )
+    public override async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(Handle.Length, cancellationToken).ConfigureAwait(false);

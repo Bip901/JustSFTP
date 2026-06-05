@@ -27,10 +27,7 @@ public record SFTPStatus(uint RequestId, Status Status) : SFTPResponse(RequestId
     public string? LanguageTag { get; init; }
 
     /// <inheritdoc/>
-    public override async Task WriteAsync(
-        SshStreamWriter writer,
-        CancellationToken cancellationToken
-    )
+    public override async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(Status, cancellationToken).ConfigureAwait(false);
@@ -55,10 +52,6 @@ public record SFTPStatus(uint RequestId, Status Status) : SFTPResponse(RequestId
         Status status = (Status)await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
         string errorMessage = await reader.ReadString(cancellationToken).ConfigureAwait(false);
         string languageTag = await reader.ReadString(cancellationToken).ConfigureAwait(false);
-        return new SFTPStatus(requestId, status)
-        {
-            ErrorMessage = errorMessage,
-            LanguageTag = languageTag,
-        };
+        return new SFTPStatus(requestId, status) { ErrorMessage = errorMessage, LanguageTag = languageTag };
     }
 }

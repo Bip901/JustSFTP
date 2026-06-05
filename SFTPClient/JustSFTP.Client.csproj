@@ -1,45 +1,45 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-	<PropertyGroup>
-		<TargetFrameworks>net8.0</TargetFrameworks>
-		<ImplicitUsings>disable</ImplicitUsings>
-		<Nullable>enable</Nullable>
-		<LangVersion>latest</LangVersion>
-		<Version>1.3.3</Version>
-		<GenerateDocumentationFile>true</GenerateDocumentationFile>
-	</PropertyGroup>
+  <PropertyGroup>
+    <TargetFrameworks>net8.0</TargetFrameworks>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Version>1.3.3</Version>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
 
-	<PropertyGroup>
-		<PackageId>JustSFTP.Client</PackageId>
-		<Authors>RobIII, Bip901</Authors>
-		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-		<Title>JustSFTP.Client</Title>
-		<Description>SFTP V3 Client Implementation</Description>
-		<Copyright>(c) 2022 KeenSystems, 2026 Bip901</Copyright>
-		<PackageLicenseExpression>MIT</PackageLicenseExpression>
-		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<RepositoryUrl>https://github.com/Bip901/JustSFTP</RepositoryUrl>
-		<RepositoryType>git</RepositoryType>
-		<PackageProjectUrl>https://github.com/Bip901/JustSFTP</PackageProjectUrl>
-		<PackageTags>sftp;sftp-client;sftpclient;ssh</PackageTags>
-		<DocumentationFile>
+  <PropertyGroup>
+    <PackageId>JustSFTP.Client</PackageId>
+    <Authors>RobIII, Bip901</Authors>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Title>JustSFTP.Client</Title>
+    <Description>SFTP V3 Client Implementation</Description>
+    <Copyright>(c) 2022 KeenSystems, 2026 Bip901</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Bip901/JustSFTP</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Bip901/JustSFTP</PackageProjectUrl>
+    <PackageTags>sftp;sftp-client;sftpclient;ssh</PackageTags>
+    <DocumentationFile>
 			$(MSBuildProjectDirectory)/bin/$(Configuration)/$(TargetFramework)/JustSFTP.Client.xml</DocumentationFile>
-	</PropertyGroup>
+  </PropertyGroup>
 
-	<ItemGroup>
-		<None Include="README.md">
-			<Pack>True</Pack>
-			<PackagePath>\</PackagePath>
-		</None>
-	</ItemGroup>
+  <ItemGroup>
+    <None Include="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\SFTPProtocol\JustSFTP.Protocol.csproj" />
-	</ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SFTPProtocol\JustSFTP.Protocol.csproj" />
+  </ItemGroup>
 
-	<ItemGroup Condition="'$(TargetFramework)'=='netstandard2.1'">
-		<PackageReference Include="IsExternalInit" Version="1.0.3">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-	</ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.1'">
+    <PackageReference Include="IsExternalInit" Version="1.0.3">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
 </Project>

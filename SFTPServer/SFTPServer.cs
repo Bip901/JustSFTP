@@ -75,10 +75,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     ) // 1 MiB
     {
         reader = new SshStreamReader(inStream ?? throw new ArgumentNullException(nameof(inStream)));
-        writer = new SshStreamWriter(
-            outStream ?? throw new ArgumentNullException(nameof(outStream)),
-            writeBufferSize
-        );
+        writer = new SshStreamWriter(outStream ?? throw new ArgumentNullException(nameof(outStream)), writeBufferSize);
         this.sftpHandler = sftpHandler ?? throw new ArgumentNullException(nameof(sftpHandler));
 
         messageHandlers = new()
@@ -124,8 +121,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
                 break;
             }
             // Determine message type
-            RequestType requestType = (RequestType)
-                await reader.ReadByte(cancellationToken).ConfigureAwait(false);
+            RequestType requestType = (RequestType)await reader.ReadByte(cancellationToken).ConfigureAwait(false);
             if (protocolVersion == 0 && requestType is RequestType.Init)
             {
                 // We subtract 5 bytes (1 for requestType and 4 for protocolVersion) from msgLength and pass the
@@ -143,12 +139,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
                     requestId,
                     requestType
                 );
-                SFTPResponse response = await BuildResponseAsync(
-                        requestId,
-                        requestType,
-                        msgLength,
-                        cancellationToken
-                    )
+                SFTPResponse response = await BuildResponseAsync(requestId, requestType, msgLength, cancellationToken)
                     .ConfigureAwait(false);
                 response = EnsureStatusProtocolVersion(response);
                 TraceSource.TraceEvent(
@@ -178,11 +169,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         }
         try
         {
-            return await handler(
-                    requestId,
-                    msgLength - sizeof(RequestType) - sizeof(uint),
-                    cancellationToken
-                )
+            return await handler(requestId, msgLength - sizeof(RequestType) - sizeof(uint), cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (HandlerException ex)
@@ -214,18 +201,13 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
             return statusResponse with
             {
                 LanguageTag = statusResponse.LanguageTag ?? string.Empty,
-                ErrorMessage =
-                    statusResponse.ErrorMessage
-                    ?? sftpHandler.GetDefaultStatusString(statusResponse.Status),
+                ErrorMessage = statusResponse.ErrorMessage ?? sftpHandler.GetDefaultStatusString(statusResponse.Status),
             };
         }
         return response;
     }
 
-    private async Task InitHandler(
-        uint extensionDataLength,
-        CancellationToken cancellationToken = default
-    )
+    private async Task InitHandler(uint extensionDataLength, CancellationToken cancellationToken = default)
     {
         // Get client version
         uint clientversion = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
@@ -239,9 +221,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
             byte[] dataBytes = await reader.ReadBinary(cancellationToken).ConfigureAwait(false);
             clientExtensions[SshStreamReader.SFTPStringEncoding.GetString(nameBytes)] =
                 SshStreamReader.SFTPStringEncoding.GetString(dataBytes);
-            extensionDataLength -= (uint)(
-                sizeof(uint) + nameBytes.Length + sizeof(uint) + dataBytes.Length
-            );
+            extensionDataLength -= (uint)(sizeof(uint) + nameBytes.Length + sizeof(uint) + dataBytes.Length);
         }
 
         SFTPExtensions serverExtensions = await sftpHandler
@@ -275,13 +255,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         var flags = await reader.ReadAccessFlags(cancellationToken).ConfigureAwait(false);
         var attrs = await reader.ReadAttributes(cancellationToken).ConfigureAwait(false);
         var result = await sftpHandler
-            .Open(
-                new SFTPPath(path),
-                flags.ToFileMode(),
-                flags.ToFileAccess(),
-                attrs,
-                cancellationToken
-            )
+            .Open(new SFTPPath(path), flags.ToFileMode(), flags.ToFileAccess(), attrs, cancellationToken)
             .ConfigureAwait(false);
         return new SFTPHandleResponse(requestId, result);
     }
@@ -306,9 +280,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         byte[] handle = await reader.ReadBinary(cancellationToken).ConfigureAwait(false);
         var offset = await reader.ReadUInt64(cancellationToken).ConfigureAwait(false);
         var len = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
-        byte[] result = await sftpHandler
-            .Read(handle, offset, len, cancellationToken)
-            .ConfigureAwait(false);
+        byte[] result = await sftpHandler.Read(handle, offset, len, cancellationToken).ConfigureAwait(false);
         return new SFTPData(requestId, result);
     }
 
@@ -332,9 +304,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     )
     {
         var path = new SFTPPath(await reader.ReadString(cancellationToken).ConfigureAwait(false));
-        SFTPAttributes attrs = await sftpHandler
-            .LStat(path, cancellationToken)
-            .ConfigureAwait(false);
+        SFTPAttributes attrs = await sftpHandler.LStat(path, cancellationToken).ConfigureAwait(false);
         return new SFTPAttributesResponse(requestId, attrs);
     }
 
@@ -345,9 +315,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     )
     {
         byte[] handle = await reader.ReadBinary(cancellationToken).ConfigureAwait(false);
-        SFTPAttributes attrs = await sftpHandler
-            .FStat(handle, cancellationToken)
-            .ConfigureAwait(false);
+        SFTPAttributes attrs = await sftpHandler.FStat(handle, cancellationToken).ConfigureAwait(false);
         return new SFTPAttributesResponse(requestId, attrs);
     }
 
@@ -393,9 +361,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     )
     {
         byte[] handle = await reader.ReadBinary(cancellationToken).ConfigureAwait(false);
-        IEnumerator<SFTPName> enumerator = await sftpHandler
-            .ReadDir(handle, cancellationToken)
-            .ConfigureAwait(false);
+        IEnumerator<SFTPName> enumerator = await sftpHandler.ReadDir(handle, cancellationToken).ConfigureAwait(false);
         List<SFTPName> results = [];
         for (int i = 0; i < READ_DIR_PAGE_SIZE && enumerator.MoveNext(); i++)
         {
@@ -451,9 +417,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         var path = await reader.ReadString(cancellationToken).ConfigureAwait(false);
         path = string.IsNullOrEmpty(path) || path == "." ? "/" : path;
 
-        var result = await sftpHandler
-            .RealPath(new SFTPPath(path), cancellationToken)
-            .ConfigureAwait(false);
+        var result = await sftpHandler.RealPath(new SFTPPath(path), cancellationToken).ConfigureAwait(false);
 
         return new SFTPNameResponse(requestId, [new SFTPName(result.Path, new SFTPAttributes())]);
     }
@@ -465,9 +429,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     )
     {
         var path = new SFTPPath(await reader.ReadString(cancellationToken).ConfigureAwait(false));
-        SFTPAttributes attrs = await sftpHandler
-            .Stat(path, cancellationToken)
-            .ConfigureAwait(false);
+        SFTPAttributes attrs = await sftpHandler.Stat(path, cancellationToken).ConfigureAwait(false);
         return new SFTPAttributesResponse(requestId, attrs);
     }
 
@@ -477,12 +439,8 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        var oldpath = new SFTPPath(
-            await reader.ReadString(cancellationToken).ConfigureAwait(false)
-        );
-        var newpath = new SFTPPath(
-            await reader.ReadString(cancellationToken).ConfigureAwait(false)
-        );
+        var oldpath = new SFTPPath(await reader.ReadString(cancellationToken).ConfigureAwait(false));
+        var newpath = new SFTPPath(await reader.ReadString(cancellationToken).ConfigureAwait(false));
         await sftpHandler.Rename(oldpath, newpath, cancellationToken).ConfigureAwait(false);
         return BuildStatus(requestId, Status.Ok);
     }
@@ -508,12 +466,8 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     {
         //NOTE: target and link appear to be swapped from the RFC??
         //Tested with sftp (commandline tool), WinSCP and CyberDuck
-        var targetpath = new SFTPPath(
-            await reader.ReadString(cancellationToken).ConfigureAwait(false)
-        );
-        var linkpath = new SFTPPath(
-            await reader.ReadString(cancellationToken).ConfigureAwait(false)
-        );
+        var targetpath = new SFTPPath(await reader.ReadString(cancellationToken).ConfigureAwait(false));
+        var linkpath = new SFTPPath(await reader.ReadString(cancellationToken).ConfigureAwait(false));
 
         await sftpHandler.SymLink(linkpath, targetpath, cancellationToken).ConfigureAwait(false);
         return BuildStatus(requestId, Status.Ok);

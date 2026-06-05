@@ -31,8 +31,7 @@ public record SFTPName(string Name, string LongName, SFTPAttributes Attributes)
     /// <remarks>If the permission bits are not known, returns false.</remarks>
     public bool IsDirectory()
     {
-        return Attributes.Permissions.HasValue
-            && Attributes.Permissions.Value.HasFlag(Permissions.Directory);
+        return Attributes.Permissions.HasValue && Attributes.Permissions.Value.HasFlag(Permissions.Directory);
     }
 
     /// <inheritdoc/>

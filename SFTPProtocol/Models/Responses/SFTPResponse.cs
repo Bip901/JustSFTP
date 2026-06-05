@@ -22,10 +22,7 @@ public abstract record SFTPResponse(uint RequestId)
         CancellationToken cancellationToken
     );
 
-    private static readonly Dictionary<
-        ResponseType,
-        ReadAsyncMethod
-    > ResponseTypeToReadAsyncMethod = new()
+    private static readonly Dictionary<ResponseType, ReadAsyncMethod> ResponseTypeToReadAsyncMethod = new()
     {
         { ResponseType.Status, SFTPStatus.ReadAsync },
         { ResponseType.Handle, SFTPHandleResponse.ReadAsync },
@@ -44,10 +41,7 @@ public abstract record SFTPResponse(uint RequestId)
     /// </summary>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public virtual async Task WriteAsync(
-        SshStreamWriter writer,
-        CancellationToken cancellationToken
-    )
+    public virtual async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)
     {
         await writer.Write(ResponseType, cancellationToken).ConfigureAwait(false);
         await writer.Write(RequestId, cancellationToken).ConfigureAwait(false);
@@ -66,28 +60,18 @@ public abstract record SFTPResponse(uint RequestId)
     )
     {
         uint _messageLength = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false); // Ignore message length, all fields can be deduced from their types
-        ResponseType responseType = (ResponseType)
-            await reader.ReadByte(cancellationToken).ConfigureAwait(false);
+        ResponseType responseType = (ResponseType)await reader.ReadByte(cancellationToken).ConfigureAwait(false);
         uint requestId = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
         if (responseType == ResponseType.Extended)
         {
-            ReadAsyncMethod? extendedReadAsyncMethod = getExtendedReadAsyncMethod?.Invoke(
-                requestId
-            );
+            ReadAsyncMethod? extendedReadAsyncMethod = getExtendedReadAsyncMethod?.Invoke(requestId);
             if (extendedReadAsyncMethod == null)
             {
-                throw new InvalidDataException(
-                    $"Don't know how to handle extended response for request {requestId}"
-                );
+                throw new InvalidDataException($"Don't know how to handle extended response for request {requestId}");
             }
             return await extendedReadAsyncMethod(requestId, reader, cancellationToken);
         }
-        if (
-            !ResponseTypeToReadAsyncMethod.TryGetValue(
-                responseType,
-                out ReadAsyncMethod? readAsyncMethod
-            )
-        )
+        if (!ResponseTypeToReadAsyncMethod.TryGetValue(responseType, out ReadAsyncMethod? readAsyncMethod))
         {
             throw new InvalidDataException($"Invalid response type: {responseType}");
         }

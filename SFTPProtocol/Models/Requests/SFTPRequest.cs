@@ -21,10 +21,7 @@ public abstract record SFTPRequest(uint RequestId)
     /// </summary>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public virtual async Task WriteAsync(
-        SshStreamWriter writer,
-        CancellationToken cancellationToken
-    )
+    public virtual async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)
     {
         await writer.Write(RequestType, cancellationToken).ConfigureAwait(false);
         await writer.Write(RequestId, cancellationToken).ConfigureAwait(false);

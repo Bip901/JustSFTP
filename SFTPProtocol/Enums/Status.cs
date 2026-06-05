@@ -10,5 +10,5 @@ public enum Status : uint
     BadMessage = 0x05,
     NoConnection = 0x06,
     ConnectionLost = 0x07,
-    OperationUnsupported = 0x08
+    OperationUnsupported = 0x08,
 }

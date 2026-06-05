@@ -30,50 +30,25 @@ public interface ISFTPHandler
 
     /// <exception cref="HandlerException"/>
     /// <exception cref="Exception"/>
-    Task<byte[]> Read(
-        byte[] handle,
-        ulong offset,
-        uint length,
-        CancellationToken cancellationToken = default
-    );
+    Task<byte[]> Read(byte[] handle, ulong offset, uint length, CancellationToken cancellationToken = default);
 
-    Task Write(
-        byte[] handle,
-        ulong offset,
-        byte[] data,
-        CancellationToken cancellationToken = default
-    );
+    Task Write(byte[] handle, ulong offset, byte[] data, CancellationToken cancellationToken = default);
 
     Task<SFTPAttributes> LStat(SFTPPath path, CancellationToken cancellationToken = default);
 
     Task<SFTPAttributes> FStat(byte[] handle, CancellationToken cancellationToken = default);
 
-    Task SetStat(
-        SFTPPath path,
-        SFTPAttributes attributes,
-        CancellationToken cancellationToken = default
-    );
+    Task SetStat(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default);
 
-    Task FSetStat(
-        byte[] handle,
-        SFTPAttributes attributes,
-        CancellationToken cancellationToken = default
-    );
+    Task FSetStat(byte[] handle, SFTPAttributes attributes, CancellationToken cancellationToken = default);
 
     Task<byte[]> OpenDir(SFTPPath path, CancellationToken cancellationToken = default);
 
-    Task<IEnumerator<SFTPName>> ReadDir(
-        byte[] handle,
-        CancellationToken cancellationToken = default
-    );
+    Task<IEnumerator<SFTPName>> ReadDir(byte[] handle, CancellationToken cancellationToken = default);
 
     Task Remove(SFTPPath path, CancellationToken cancellationToken = default);
 
-    Task MakeDir(
-        SFTPPath path,
-        SFTPAttributes attributes,
-        CancellationToken cancellationToken = default
-    );
+    Task MakeDir(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default);
 
     Task RemoveDir(SFTPPath path, CancellationToken cancellationToken = default);
 
@@ -86,11 +61,7 @@ public interface ISFTPHandler
 #if NET6_0_OR_GREATER
     Task<SFTPName> ReadLink(SFTPPath path, CancellationToken cancellationToken = default);
 
-    Task SymLink(
-        SFTPPath linkPath,
-        SFTPPath targetPath,
-        CancellationToken cancellationToken = default
-    );
+    Task SymLink(SFTPPath linkPath, SFTPPath targetPath, CancellationToken cancellationToken = default);
 #endif
 
     /// <summary>

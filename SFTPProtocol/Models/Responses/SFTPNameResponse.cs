@@ -10,17 +10,13 @@ namespace JustSFTP.Protocol.Models.Responses;
 /// <summary>
 /// SSH_FXP_NAME
 /// </summary>
-public record SFTPNameResponse(uint RequestId, IReadOnlyCollection<SFTPName> Names)
-    : SFTPResponse(RequestId)
+public record SFTPNameResponse(uint RequestId, IReadOnlyCollection<SFTPName> Names) : SFTPResponse(RequestId)
 {
     /// <inheritdoc/>
     public override ResponseType ResponseType => ResponseType.Name;
 
     /// <inheritdoc/>
-    public override async Task WriteAsync(
-        SshStreamWriter writer,
-        CancellationToken cancellationToken
-    )
+    public override async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)
     {
         await base.WriteAsync(writer, cancellationToken).ConfigureAwait(false);
         await writer.Write(Names.Count, cancellationToken).ConfigureAwait(false);
