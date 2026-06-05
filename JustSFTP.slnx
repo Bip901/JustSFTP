@@ -1,0 +1,16 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/Solution Items/">
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+  </Folder>
+  <Project Path="JustSFTP.Tests/JustSFTP.Tests.csproj" />
+  <Project Path="SFTPClient/JustSFTP.Client.csproj" />
+  <Project Path="SFTPHost/JustSFTP.Host.csproj" />
+  <Project Path="SFTPProtocol/JustSFTP.Protocol.csproj" />
+  <Project Path="SFTPServer/JustSFTP.Server.csproj" />
+</Solution>
