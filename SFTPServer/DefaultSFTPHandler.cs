@@ -81,15 +81,23 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        Stream stream = openHandles.RequireFileStream(handle);
-        if (offset >= (ulong)stream.Length)
+        SFTPHandleCollection.OpenSFTPFile file = openHandles.RequireFile(handle);
+        await file.StreamSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            throw new HandlerException(Status.EndOfFile);
+            if (offset >= (ulong)file.Stream.Length)
+            {
+                throw new HandlerException(Status.EndOfFile);
+            }
+            file.Stream.Seek((long)offset, SeekOrigin.Begin);
+            byte[] buffer = new byte[length];
+            int bytesRead = await file.Stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            return buffer[..bytesRead];
         }
-        stream.Seek((long)offset, SeekOrigin.Begin);
-        byte[] buffer = new byte[length];
-        int bytesRead = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-        return buffer[..bytesRead];
+        finally
+        {
+            file.StreamSemaphore.Release();
+        }
     }
 
     /// <inheritdoc/>
@@ -100,12 +108,20 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        Stream stream = openHandles.RequireFileStream(handle);
-        if (stream.Position != (long)offset)
+        SFTPHandleCollection.OpenSFTPFile file = openHandles.RequireFile(handle);
+        await file.StreamSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            stream.Seek((long)offset, SeekOrigin.Begin);
+            if (file.Stream.Position != (long)offset)
+            {
+                file.Stream.Seek((long)offset, SeekOrigin.Begin);
+            }
+            await file.Stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
         }
-        await stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
+        finally
+        {
+            file.StreamSemaphore.Release();
+        }
     }
 
     /// <inheritdoc/>
