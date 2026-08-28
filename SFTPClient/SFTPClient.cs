@@ -63,7 +63,7 @@ public class SFTPClient : IDisposable
     /// <param name="inStream">The stream to read from.</param>
     /// <param name="outStream">The stream to write to.</param>
     /// <param name="writeBufferSize">The write buffer size in bytes. Longer messages will not be able to be written.</param>
-    /// <param name="traceSource">Optionally, a trace source to log to. Defaults to a silent trace source. See also: <seealso cref="TraceEventIds"/>.</param>
+    /// <param name="traceSource">Optionally, a trace source to log to. Defaults to a silent trace source. See also: <see cref="TraceEventIds"/>.</param>
     /// <param name="ownsStreams">Whether to dispose the inStream and outStream when this client is disposed.</param>
     /// <exception cref="ArgumentNullException"></exception>
     public SFTPClient(
@@ -435,7 +435,7 @@ public class SFTPClient : IDisposable
     #endregion
 
     #region Low-level requests
-    internal Task CloseFileAsync(byte[] handle, CancellationToken cancellationToken = default)
+    internal Task<SFTPResponse> CloseFileAsync(byte[] handle, CancellationToken cancellationToken = default)
     {
         return RequestAsync(new SFTPCloseRequest(GetNextRequestId(), handle), cancellationToken);
     }

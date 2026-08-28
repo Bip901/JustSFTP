@@ -17,7 +17,7 @@ namespace JustSFTP.Client;
 /// which don't use nor change the <see cref="Position"/>. These can be used to consume all available bandwidth with <see cref="System.IO.Pipelines.PipeWriter"/>
 /// without waiting for the full response (a round-trip) before requesting the next byte range.
 /// </remarks>
-public class SFTPFileStream : Stream, IAsyncDisposableCancelable
+public sealed class SFTPFileStream : Stream, IAsyncDisposableCancelable
 {
     /// <inheritdoc/>
     public override bool CanRead => canRead;
@@ -205,7 +205,11 @@ public class SFTPFileStream : Stream, IAsyncDisposableCancelable
         throw new NotSupportedException("Use SetStatAsync instead.");
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Sends a close request to the remote server and waits for a response (without checking its status).
+    /// See also: <see cref="SetDisposeCancellationToken"/>.
+    /// </summary>
+    /// <exception cref="OperationCanceledException"/>
     public override async ValueTask DisposeAsync()
     {
         if (hasSentCloseRequest)
@@ -216,7 +220,11 @@ public class SFTPFileStream : Stream, IAsyncDisposableCancelable
         await client.CloseFileAsync(fileHandle, disposeCancellationToken).ConfigureAwait(false);
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Sends a close request to the remote server, without waiting for a response, to avoid unexpected deadlocks in <c>using</c> blocks.
+    /// </summary>
+    /// <remarks>Prefer using <see cref="DisposeAsync"/>.</remarks>
+    /// <param name="disposing">True to actually do something, false to no-op (when called from a destructor).</param>
     protected override void Dispose(bool disposing)
     {
         if (disposing)

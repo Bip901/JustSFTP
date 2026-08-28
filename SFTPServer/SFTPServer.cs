@@ -45,7 +45,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     /// <param name="outStream">The stream to write to.</param>
     /// <param name="root">The root path in the local filesystem to serve from.</param>
     /// <param name="writeBufferSize">The write buffer size in bytes. Longer messages will not be able to be written.</param>
-    /// <param name="traceSource">Optionally, a trace source to log to. Defaults to a silent trace source. See also: <seealso cref="TraceEventIds"/>.</param>
+    /// <param name="traceSource">Optionally, a trace source to log to. Defaults to a silent trace source. See also: <see cref="TraceEventIds"/>.</param>
     /// <exception cref="ArgumentNullException"></exception>
     public SFTPServer(
         Stream inStream,
@@ -64,7 +64,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     /// <param name="outStream">The stream to write to.</param>
     /// <param name="sftpHandler">The SFTP handler.</param>
     /// <param name="writeBufferSize">The write buffer size in bytes. Longer messages will not be able to be written.</param>
-    /// <param name="traceSource">Optionally, a trace source to log to. Defaults to a silent trace source. See also: <seealso cref="TraceEventIds"/>.</param>
+    /// <param name="traceSource">Optionally, a trace source to log to. Defaults to a silent trace source. See also: <see cref="TraceEventIds"/>.</param>
     /// <exception cref="ArgumentNullException"></exception>
     public SFTPServer(
         Stream inStream,
