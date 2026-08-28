@@ -189,7 +189,7 @@ public class SFTPClient : IDisposable
     /// <exception cref="InvalidDataException"/>
     /// <exception cref="OperationCanceledException"/>
     /// <exception cref="ObjectDisposedException"/>
-    public async Task<Stream> OpenFileAsync(
+    public async Task<SFTPFileStream> OpenFileAsync(
         string path,
         AccessFlags flags,
         SFTPAttributes attributes,
@@ -440,6 +440,8 @@ public class SFTPClient : IDisposable
         return RequestAsync(new SFTPCloseRequest(GetNextRequestId(), handle), cancellationToken);
     }
 
+    /// <exception cref="HandlerException"></exception>
+    /// <exception cref="InvalidDataException"></exception>
     internal async Task<byte[]> ReadAsync(
         byte[] handle,
         ulong offset,

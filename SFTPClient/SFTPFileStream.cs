@@ -7,17 +7,29 @@ using JustSFTP.Protocol.Enums;
 
 namespace JustSFTP.Client;
 
-internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
+/// <summary>
+/// A <see cref="Stream"/> over a remote SFTP file.
+/// Reads and writes on this stream translate exactly to read and write SFTP requests,
+/// so callers might want to add a layer of buffering (e.g. <see cref="BufferedStream"/>, <see cref="System.IO.Pipelines.PipeReader"/>).
+/// </summary>
+public class SFTPFileStream : Stream, IAsyncDisposableCancelable
 {
+    /// <inheritdoc/>
     public override bool CanRead => canRead;
 
+    /// <inheritdoc/>
     public override bool CanWrite => canWrite;
 
+    /// <inheritdoc/>
     public override bool CanSeek => canSeek;
 
+    /// <summary>
+    /// The length of the remote file in bytes. This property is only available if the stream was opened with seeking support.
+    /// </summary>
     public override long Length => length == -1 ? throw new NotSupportedException() : length;
     private long length;
 
+    /// <inheritdoc/>
     public override long Position
     {
         get => position;
@@ -56,6 +68,7 @@ internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
         position = initialPosition;
     }
 
+    /// <inheritdoc/>
     public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
         byte[] data;
@@ -74,6 +87,7 @@ internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
         return data.Length;
     }
 
+    /// <inheritdoc/>
     public override async ValueTask WriteAsync(
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -87,16 +101,18 @@ internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
         }
     }
 
-    public override void Flush()
-    {
-        // This stream does not buffer anyway
-    }
+    /// <summary>
+    /// A no-op, as this stream does no buffering anyway.
+    /// </summary>
+    public override void Flush() { }
 
+    /// <inheritdoc/>
     public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
         return await ReadAsync(buffer.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc/>
     public override int Read(byte[] buffer, int offset, int count)
     {
         ValueTask<int> valueTask = ReadAsync(buffer.AsMemory(offset, count));
@@ -107,11 +123,13 @@ internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
         return valueTask.AsTask().Result; // Block until task completes
     }
 
+    /// <inheritdoc/>
     public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
         await WriteAsync(buffer.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc/>
     public override void Write(byte[] buffer, int offset, int count)
     {
         ValueTask valueTask = WriteAsync(buffer.AsMemory(offset, count));
@@ -121,6 +139,7 @@ internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
         }
     }
 
+    /// <inheritdoc/>
     public override long Seek(long offset, SeekOrigin origin)
     {
         if (!canSeek)
@@ -145,6 +164,7 @@ internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
         throw new NotSupportedException("Use SetStatAsync instead.");
     }
 
+    /// <inheritdoc/>
     public override async ValueTask DisposeAsync()
     {
         if (hasSentCloseRequest)
@@ -155,6 +175,7 @@ internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
         await client.CloseFileAsync(fileHandle, disposeCancellationToken).ConfigureAwait(false);
     }
 
+    /// <inheritdoc/>
     protected override void Dispose(bool disposing)
     {
         if (disposing)
@@ -167,6 +188,7 @@ internal class SFTPFileStream : Stream, IAsyncDisposableCancelable
         }
     }
 
+    /// <inheritdoc/>
     public void SetDisposeCancellationToken(CancellationToken cancellationToken)
     {
         this.disposeCancellationToken = cancellationToken;
