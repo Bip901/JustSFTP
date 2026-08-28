@@ -12,6 +12,11 @@ namespace JustSFTP.Client;
 /// Reads and writes on this stream translate exactly to read and write SFTP requests,
 /// so callers might want to add a layer of buffering (e.g. <see cref="BufferedStream"/>, <see cref="System.IO.Pipelines.PipeReader"/>).
 /// </summary>
+/// <remarks>
+/// This class offers <see cref="StatelessReadAsync"/> and <see cref="StatelessWriteAsync"/> for thread-safe direct requests to the SFTP server,
+/// which don't use nor change the <see cref="Position"/>. These can be used to consume all available bandwidth with <see cref="System.IO.Pipelines.PipeWriter"/>
+/// without waiting for the full response (a round-trip) before requesting the next byte range.
+/// </remarks>
 public class SFTPFileStream : Stream, IAsyncDisposableCancelable
 {
     /// <inheritdoc/>
@@ -71,20 +76,9 @@ public class SFTPFileStream : Stream, IAsyncDisposableCancelable
     /// <inheritdoc/>
     public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
-        byte[] data;
-        try
-        {
-            data = await client
-                .ReadAsync(fileHandle, (ulong)position, (uint)buffer.Length, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (HandlerException ex) when (ex.Status == Status.EndOfFile)
-        {
-            return 0;
-        }
-        data.CopyTo(buffer);
-        position += data.Length;
-        return data.Length;
+        int bytesRead = await StatelessReadAsync(position, buffer, cancellationToken);
+        position += bytesRead;
+        return bytesRead;
     }
 
     /// <inheritdoc/>
@@ -99,6 +93,53 @@ public class SFTPFileStream : Stream, IAsyncDisposableCancelable
         {
             length = position;
         }
+    }
+
+    /// <summary>
+    /// Asynchronously reads a sequence of bytes from the current stream, completely disregarding the <see cref="Position"/> property.
+    /// </summary>
+    /// <remarks>This method is thread-safe.</remarks>
+    /// <param name="offset">The offset to start reading from.</param>
+    /// <param name="buffer">The region of memory to write the data into.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests. The default is <see cref="CancellationToken.None"/>.</param>
+    /// <returns>A task that represents the asynchronous read operation. The value of its Result property contains the total number of bytes read into the buffer. The result value can be less than the length of the buffer if that many bytes are not currently available, or it can be 0 (zero) if the length of the buffer is 0 or if the end of the stream has been reached.</returns>
+    /// <exception cref="InvalidOperationException"/>
+    public async ValueTask<int> StatelessReadAsync(
+        long offset,
+        Memory<byte> buffer,
+        CancellationToken cancellationToken = default
+    )
+    {
+        byte[] data;
+        try
+        {
+            data = await client
+                .ReadAsync(fileHandle, (ulong)offset, (uint)buffer.Length, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (HandlerException ex) when (ex.Status == Status.EndOfFile)
+        {
+            return 0;
+        }
+        data.CopyTo(buffer);
+        return data.Length;
+    }
+
+    /// <summary>
+    /// Asynchronously writes a sequence of bytes to the current stream, completely disregarding the <see cref="Position"/> property.
+    /// </summary>
+    /// <param name="offset">The offset to start reading to.</param>
+    /// <param name="buffer">The region of memory to write data from.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests. The default is <see cref="CancellationToken.None"/>.</param>
+    /// <returns>A task that represents the asynchronous write operation.</returns>
+    /// <exception cref="OperationCanceledException"/>
+    public async ValueTask StatelessWriteAsync(
+        long offset,
+        ReadOnlyMemory<byte> buffer,
+        CancellationToken cancellationToken = default
+    )
+    {
+        await client.WriteAsync(fileHandle, (ulong)offset, buffer.ToArray(), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
