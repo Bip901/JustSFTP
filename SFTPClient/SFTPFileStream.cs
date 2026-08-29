@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using FileAbstractions;
+using FileAbstractions.Streams;
 using JustSFTP.Protocol;
 using JustSFTP.Protocol.Enums;
 
@@ -13,11 +15,11 @@ namespace JustSFTP.Client;
 /// so callers might want to add a layer of buffering (e.g. <see cref="BufferedStream"/>, <see cref="System.IO.Pipelines.PipeReader"/>).
 /// </summary>
 /// <remarks>
-/// This class offers <see cref="StatelessReadAsync"/> and <see cref="StatelessWriteAsync"/> for thread-safe direct requests to the SFTP server,
+/// This class offers <see cref="ReadAtAsync"/> and <see cref="WriteAtAsync"/> for thread-safe direct requests to the SFTP server,
 /// which don't use nor change the <see cref="Position"/>. These can be used to consume all available bandwidth with <see cref="System.IO.Pipelines.PipeWriter"/>
 /// without waiting for the full response (a round-trip) before requesting the next byte range.
 /// </remarks>
-public sealed class SFTPFileStream : Stream, IAsyncDisposableCancelable
+public sealed class SFTPFileStream : Stream, IConcurrentStream, IAsyncDisposableCancelable
 {
     /// <inheritdoc/>
     public override bool CanRead => canRead;
@@ -76,7 +78,7 @@ public sealed class SFTPFileStream : Stream, IAsyncDisposableCancelable
     /// <inheritdoc/>
     public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
-        int bytesRead = await StatelessReadAsync(position, buffer, cancellationToken);
+        int bytesRead = await ReadAtAsync(position, buffer, cancellationToken);
         position += bytesRead;
         return bytesRead;
     }
@@ -95,16 +97,8 @@ public sealed class SFTPFileStream : Stream, IAsyncDisposableCancelable
         }
     }
 
-    /// <summary>
-    /// Asynchronously reads a sequence of bytes from the current stream, completely disregarding the <see cref="Position"/> property.
-    /// </summary>
-    /// <remarks>This method is thread-safe.</remarks>
-    /// <param name="offset">The offset to start reading from.</param>
-    /// <param name="buffer">The region of memory to write the data into.</param>
-    /// <param name="cancellationToken">The token to monitor for cancellation requests. The default is <see cref="CancellationToken.None"/>.</param>
-    /// <returns>A task that represents the asynchronous read operation. The value of its Result property contains the total number of bytes read into the buffer. The result value can be less than the length of the buffer if that many bytes are not currently available, or it can be 0 (zero) if the length of the buffer is 0 or if the end of the stream has been reached.</returns>
-    /// <exception cref="InvalidOperationException"/>
-    public async ValueTask<int> StatelessReadAsync(
+    /// <inheritdoc/>
+    public async ValueTask<int> ReadAtAsync(
         long offset,
         Memory<byte> buffer,
         CancellationToken cancellationToken = default
@@ -125,15 +119,8 @@ public sealed class SFTPFileStream : Stream, IAsyncDisposableCancelable
         return data.Length;
     }
 
-    /// <summary>
-    /// Asynchronously writes a sequence of bytes to the current stream, completely disregarding the <see cref="Position"/> property.
-    /// </summary>
-    /// <param name="offset">The offset to start reading to.</param>
-    /// <param name="buffer">The region of memory to write data from.</param>
-    /// <param name="cancellationToken">The token to monitor for cancellation requests. The default is <see cref="CancellationToken.None"/>.</param>
-    /// <returns>A task that represents the asynchronous write operation.</returns>
-    /// <exception cref="OperationCanceledException"/>
-    public async ValueTask StatelessWriteAsync(
+    /// <inheritdoc/>
+    public async ValueTask WriteAtAsync(
         long offset,
         ReadOnlyMemory<byte> buffer,
         CancellationToken cancellationToken = default

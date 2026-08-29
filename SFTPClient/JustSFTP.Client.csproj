@@ -35,4 +35,8 @@
   <ItemGroup>
     <ProjectReference Include="..\SFTPProtocol\JustSFTP.Protocol.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FileAbstractions" Version="0.5.0" />
+  </ItemGroup>
 </Project>
