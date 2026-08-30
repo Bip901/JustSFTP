@@ -16,7 +16,7 @@ namespace JustSFTP.Server;
 /// </summary>
 public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
 {
-    private const int MAX_RESPONSE_BUFFER_SIZE = 128 * 1024; // 128 KiB
+    private const int MAX_RESPONSE_BUFFER_SIZE = 256 * 1024 - 1024; // 255 KiB
 
     private static readonly Uri _virtualroot = new("virt://", UriKind.Absolute);
     private readonly SFTPHandleCollection openHandles = new();
