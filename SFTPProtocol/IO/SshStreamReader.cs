@@ -18,6 +18,12 @@ public class SshStreamReader
     public static readonly Encoding SFTPStringEncoding = new UTF8Encoding(false);
 
     /// <summary>
+    /// Maximum packet that we are willing to accept.
+    /// Value mirrors OpenSSH's SFTP_MAX_MSG_LENGTH.
+    /// </summary>
+    public int MaxMessageLength = 256 * 1024;
+
+    /// <summary>
     /// The underlying stream.
     /// </summary>
     public Stream Stream { get; }
@@ -101,9 +107,15 @@ public class SshStreamReader
         };
     }
 
-    public async Task<byte[]> ReadBinary(CancellationToken cancellationToken = default) =>
-        await ReadBinary((int)await ReadUInt32(cancellationToken).ConfigureAwait(false), cancellationToken)
-            .ConfigureAwait(false);
+    public async Task<byte[]> ReadBinary(CancellationToken cancellationToken = default)
+    {
+        uint size = await ReadUInt32(cancellationToken).ConfigureAwait(false);
+        if (size > MaxMessageLength)
+        {
+            throw new InvalidOperationException($"Refusing to handle message of length {size}");
+        }
+        return await ReadBinary((int)size, cancellationToken).ConfigureAwait(false);
+    }
 
     public async Task<byte[]> ReadBinary(int length, CancellationToken cancellationToken = default)
     {
