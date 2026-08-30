@@ -16,6 +16,8 @@ namespace JustSFTP.Server;
 /// </summary>
 public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
 {
+    private const int MAX_RESPONSE_BUFFER_SIZE = 128 * 1024; // 128 KiB
+
     private static readonly Uri _virtualroot = new("virt://", UriKind.Absolute);
     private readonly SFTPHandleCollection openHandles = new();
     private readonly SFTPPath root = root;
@@ -82,22 +84,15 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
     )
     {
         SFTPHandleCollection.OpenSFTPFile file = openHandles.RequireFile(handle);
-        await file.StreamSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        if (offset >= (ulong)file.Stream.Length)
         {
-            if (offset >= (ulong)file.Stream.Length)
-            {
-                throw new HandlerException(Status.EndOfFile);
-            }
-            file.Stream.Seek((long)offset, SeekOrigin.Begin);
-            byte[] buffer = new byte[length];
-            int bytesRead = await file.Stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-            return buffer[..bytesRead];
+            throw new HandlerException(Status.EndOfFile);
         }
-        finally
-        {
-            file.StreamSemaphore.Release();
-        }
+        byte[] buffer = new byte[Math.Min(MAX_RESPONSE_BUFFER_SIZE, length)];
+        int bytesRead = await RandomAccess
+            .ReadAsync(file.Stream.SafeFileHandle, buffer.AsMemory(), (long)offset, cancellationToken)
+            .ConfigureAwait(false);
+        return buffer[..bytesRead];
     }
 
     /// <inheritdoc/>
@@ -109,19 +104,9 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
     )
     {
         SFTPHandleCollection.OpenSFTPFile file = openHandles.RequireFile(handle);
-        await file.StreamSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            if (file.Stream.Position != (long)offset)
-            {
-                file.Stream.Seek((long)offset, SeekOrigin.Begin);
-            }
-            await file.Stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            file.StreamSemaphore.Release();
-        }
+        await RandomAccess
+            .WriteAsync(file.Stream.SafeFileHandle, data.AsMemory(), (long)offset, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
