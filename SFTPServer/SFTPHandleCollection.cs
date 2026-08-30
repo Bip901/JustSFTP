@@ -28,12 +28,19 @@ public class SFTPHandleCollection : IDisposable
 
     /// <param name="Path">The path to the file or directory.</param>
     /// <param name="Stream">The open file stream.</param>
-    public record OpenSFTPFile(SFTPPath Path, FileStream Stream) : OpenSFTPFileOrDirectory(Path)
+    public record OpenSFTPFile(SFTPPath Path, Stream Stream) : OpenSFTPFileOrDirectory(Path)
     {
+        /// <summary>
+        /// The semaphore to use when using non-concurrent stream APIs.
+        /// Do not wait for this semaphore when using <see cref="RandomAccess"/> APIs.
+        /// </summary>
+        public SemaphoreSlim StreamSemaphore { get; } = new SemaphoreSlim(1, 1);
+
         /// <inheritdoc/>
         public override void Dispose()
         {
             Stream.Dispose();
+            StreamSemaphore.Dispose();
         }
     }
 

@@ -90,7 +90,7 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         }
         byte[] buffer = new byte[Math.Min(MAX_RESPONSE_BUFFER_SIZE, length)];
         int bytesRead = await RandomAccess
-            .ReadAsync(file.Stream.SafeFileHandle, buffer.AsMemory(), (long)offset, cancellationToken)
+            .ReadAsync(((FileStream)file.Stream).SafeFileHandle, buffer.AsMemory(), (long)offset, cancellationToken)
             .ConfigureAwait(false);
         return buffer[..bytesRead];
     }
@@ -105,7 +105,7 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
     {
         SFTPHandleCollection.OpenSFTPFile file = openHandles.RequireFile(handle);
         await RandomAccess
-            .WriteAsync(file.Stream.SafeFileHandle, data.AsMemory(), (long)offset, cancellationToken)
+            .WriteAsync(((FileStream)file.Stream).SafeFileHandle, data.AsMemory(), (long)offset, cancellationToken)
             .ConfigureAwait(false);
     }
 
