@@ -11,12 +11,12 @@ namespace JustSFTP.Protocol.Models.Requests.Extended;
 /// <para>See: https://libssh2.org/libssh2_sftp_posix_rename_ex.html and https://cvsweb.openbsd.org/cgi-bin/cvsweb/~checkout~/src/usr.bin/ssh/PROTOCOL</para>
 /// </summary>
 public record SFTPPosixRenameRequest(uint RequestId, string OldPath, string NewPath)
-    : SFTPExtendedRequest(RequestId, EXTENSION_NAME)
+    : SFTPExtendedRequest(RequestId, REQUEST_NAME)
 {
     /// <summary>
     /// The name of this extended request.
     /// </summary>
-    public const string EXTENSION_NAME = "posix-rename@openssh.com";
+    public const string REQUEST_NAME = "posix-rename@openssh.com";
 
     /// <inheritdoc/>
     public override async Task WriteAsync(SshStreamWriter writer, CancellationToken cancellationToken)

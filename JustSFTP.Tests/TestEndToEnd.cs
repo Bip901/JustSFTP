@@ -111,13 +111,13 @@ public class TestEndToEnd
 
         // Test extensions
         Assert.Equal(
-            Status.OperationUnsupported,
+            Status.NoSuchFile,
             (
                 await Assert.ThrowsAsync<HandlerException>(() =>
                     client.ExtendedRequestAsync<SFTPStatus>(requestId => new SFTPPosixRenameRequest(
                         requestId,
-                        "/example.txt",
-                        "/example2.txt"
+                        "/non-existent-file.txt",
+                        "/new-name.txt"
                     ))
                 )
             ).Status

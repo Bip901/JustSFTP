@@ -9,6 +9,8 @@ using JustSFTP.Protocol;
 using JustSFTP.Protocol.Enums;
 using JustSFTP.Protocol.IO;
 using JustSFTP.Protocol.Models;
+using JustSFTP.Protocol.Models.Requests.Extended;
+using JustSFTP.Protocol.Models.Responses;
 
 namespace JustSFTP.Server;
 
@@ -17,6 +19,11 @@ namespace JustSFTP.Server;
 /// </summary>
 public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
 {
+    /// <summary>
+    /// The extension name of the posix-rename extension.
+    /// </summary>
+    public const string SFTP_EXTENSION_POSIX_RENAME = "posix-rename@openssh.com";
+
     /// <summary>
     /// Maximum data read that we are willing to accept.
     /// Values mirrors OpenSSH's SFTP_MAX_READ_LENGTH.
@@ -211,10 +218,15 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
     /// <inheritdoc/>
     public virtual Task Rename(SFTPPath oldPath, SFTPPath newPath, CancellationToken cancellationToken = default)
     {
+        Rename(oldPath, newPath, allowOverwrite: false);
+        return Task.CompletedTask;
+    }
+
+    private void Rename(SFTPPath oldPath, SFTPPath newPath, bool allowOverwrite)
+    {
         if (TryGetFSObject(oldPath, out var fsOldObject) && fsOldObject is FileInfo)
         {
-            File.Move(fsOldObject.FullName, GetPhysicalPath(newPath));
-            return Task.CompletedTask;
+            File.Move(fsOldObject.FullName, GetPhysicalPath(newPath), allowOverwrite);
         }
         throw new HandlerException(Status.NoSuchFile);
     }
@@ -245,6 +257,27 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
             return Task.CompletedTask;
         }
         throw new HandlerException(Status.NoSuchFile);
+    }
+
+    /// <inheritdoc/>
+    public virtual async Task<SFTPResponse> Extended(
+        uint requestId,
+        string requestName,
+        Stream restOfRequest,
+        CancellationToken cancellationToken = default
+    )
+    {
+        switch (requestName)
+        {
+            case SFTPPosixRenameRequest.REQUEST_NAME:
+                SFTPPosixRenameRequest request = await SFTPPosixRenameRequest
+                    .DeserializeAsync(requestId, restOfRequest, cancellationToken)
+                    .ConfigureAwait(false);
+                Rename(new SFTPPath(request.OldPath), new SFTPPath(request.NewPath), allowOverwrite: true);
+                return new SFTPStatus(requestId, Status.Ok);
+            default:
+                throw new HandlerException(Status.OperationUnsupported);
+        }
     }
 
     /// <inheritdoc/>
