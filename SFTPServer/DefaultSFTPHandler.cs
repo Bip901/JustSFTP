@@ -214,7 +214,6 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         throw new HandlerException(Status.NoSuchFile);
     }
 
-#if NET6_0_OR_GREATER
     public virtual Task<SFTPName> ReadLink(SFTPPath path, CancellationToken cancellationToken = default)
     {
         if (TryGetFSObject(path, out var fsObject) && fsObject.LinkTarget != null)
@@ -242,7 +241,6 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
         }
         throw new HandlerException(Status.NoSuchFile);
     }
-#endif
 
     /// <inheritdoc/>
     public virtual string GetPhysicalPath(SFTPPath path) => Path.Join(root.Path, GetVirtualPath(path));

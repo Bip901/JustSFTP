@@ -58,11 +58,9 @@ public interface ISFTPHandler
 
     Task Rename(SFTPPath oldPath, SFTPPath newPath, CancellationToken cancellationToken = default);
 
-#if NET6_0_OR_GREATER
     Task<SFTPName> ReadLink(SFTPPath path, CancellationToken cancellationToken = default);
 
     Task SymLink(SFTPPath linkPath, SFTPPath targetPath, CancellationToken cancellationToken = default);
-#endif
 
     /// <summary>
     /// Handle any vendor-specific SFTP extensions.

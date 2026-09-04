@@ -96,10 +96,8 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
             { RequestType.RealPath, RealPathHandler },
             { RequestType.Stat, StatHandler },
             { RequestType.Rename, RenameHandler },
-#if NET6_0_OR_GREATER
             { RequestType.ReadLink, ReadLinkHandler },
             { RequestType.SymLink, SymLinkHandler },
-#endif
             { RequestType.Extended, ExtendedHandler },
         };
 
@@ -445,7 +443,6 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         return BuildStatus(requestId, Status.Ok);
     }
 
-#if NET6_0_OR_GREATER
     private async Task<SFTPResponse> ReadLinkHandler(
         uint requestId,
         uint remainingLength,
@@ -472,7 +469,6 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         await sftpHandler.SymLink(linkpath, targetpath, cancellationToken).ConfigureAwait(false);
         return BuildStatus(requestId, Status.Ok);
     }
-#endif
 
     private async Task<SFTPResponse> ExtendedHandler(
         uint requestId,
