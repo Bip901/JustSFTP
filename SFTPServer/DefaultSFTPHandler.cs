@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Protocol;
 using JustSFTP.Protocol.Enums;
+using JustSFTP.Protocol.IO;
 using JustSFTP.Protocol.Models;
 
 namespace JustSFTP.Server;
@@ -16,7 +17,11 @@ namespace JustSFTP.Server;
 /// </summary>
 public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
 {
-    private const int MAX_RESPONSE_BUFFER_SIZE = 256 * 1024 - 1024; // 255 KiB
+    /// <summary>
+    /// Maximum data read that we are willing to accept.
+    /// Values mirrors OpenSSH's SFTP_MAX_READ_LENGTH.
+    /// </summary>
+    private const int MAX_RESPONSE_BUFFER_SIZE = SshStreamReader.MaxMessageLength - 1024;
 
     private static readonly Uri _virtualroot = new("virt://", UriKind.Absolute);
     private readonly SFTPHandleCollection openHandles = new();

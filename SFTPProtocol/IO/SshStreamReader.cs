@@ -21,7 +21,7 @@ public class SshStreamReader
     /// Maximum packet that we are willing to accept.
     /// Value mirrors OpenSSH's SFTP_MAX_MSG_LENGTH.
     /// </summary>
-    public int MaxMessageLength = 256 * 1024;
+    public const int MaxMessageLength = 256 * 1024;
 
     /// <summary>
     /// The underlying stream.
