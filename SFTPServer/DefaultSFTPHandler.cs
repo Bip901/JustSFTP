@@ -21,7 +21,7 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
     /// Maximum data read that we are willing to accept.
     /// Values mirrors OpenSSH's SFTP_MAX_READ_LENGTH.
     /// </summary>
-    private const int MAX_RESPONSE_BUFFER_SIZE = SshStreamReader.MaxMessageLength - 1024;
+    private const int MAX_RESPONSE_BUFFER_SIZE = SFTPIOConsts.MaxMessageLength - 1024;
 
     private static readonly Uri _virtualroot = new("virt://", UriKind.Absolute);
     private readonly SFTPHandleCollection openHandles = new();

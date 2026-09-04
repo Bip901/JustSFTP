@@ -52,7 +52,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         Stream outStream,
         SFTPPath root,
         TraceSource? traceSource = null,
-        int writeBufferSize = SshStreamReader.MaxMessageLength
+        int writeBufferSize = SFTPIOConsts.MaxMessageLength
     )
         : this(inStream, outStream, new DefaultSFTPHandler(root), traceSource, writeBufferSize) { }
 
@@ -71,7 +71,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         Stream outStream,
         ISFTPHandler sftpHandler,
         TraceSource? traceSource = null,
-        int writeBufferSize = SshStreamReader.MaxMessageLength
+        int writeBufferSize = SFTPIOConsts.MaxMessageLength
     )
     {
         reader = new SshStreamReader(inStream ?? throw new ArgumentNullException(nameof(inStream)));
@@ -117,6 +117,10 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
             if (msgLength == 0)
             {
                 break;
+            }
+            if (msgLength > SFTPIOConsts.MaxMessageLength)
+            {
+                throw new InvalidOperationException($"Bad message length {msgLength}");
             }
             // Determine message type
             RequestType requestType = (RequestType)await reader.ReadByte(cancellationToken).ConfigureAwait(false);
@@ -217,8 +221,9 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         {
             byte[] nameBytes = await reader.ReadBinary(cancellationToken).ConfigureAwait(false);
             byte[] dataBytes = await reader.ReadBinary(cancellationToken).ConfigureAwait(false);
-            clientExtensions[SshStreamReader.SFTPStringEncoding.GetString(nameBytes)] =
-                SshStreamReader.SFTPStringEncoding.GetString(dataBytes);
+            clientExtensions[SFTPIOConsts.StringEncoding.GetString(nameBytes)] = SFTPIOConsts.StringEncoding.GetString(
+                dataBytes
+            );
             extensionDataLength -= (uint)(sizeof(uint) + nameBytes.Length + sizeof(uint) + dataBytes.Length);
         }
 

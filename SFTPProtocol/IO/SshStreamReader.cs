@@ -2,7 +2,6 @@
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Protocol.Enums;
@@ -15,14 +14,6 @@ namespace JustSFTP.Protocol.IO;
 /// </summary>
 public class SshStreamReader
 {
-    public static readonly Encoding SFTPStringEncoding = new UTF8Encoding(false);
-
-    /// <summary>
-    /// Maximum packet that we are willing to accept.
-    /// Value mirrors OpenSSH's SFTP_MAX_MSG_LENGTH.
-    /// </summary>
-    public const int MaxMessageLength = 256 * 1024;
-
     /// <summary>
     /// The underlying stream.
     /// </summary>
@@ -48,7 +39,7 @@ public class SshStreamReader
 
     public async Task<string> ReadString(CancellationToken cancellationToken = default)
     {
-        return SFTPStringEncoding.GetString(await ReadBinary(cancellationToken).ConfigureAwait(false));
+        return SFTPIOConsts.StringEncoding.GetString(await ReadBinary(cancellationToken).ConfigureAwait(false));
     }
 
     public async Task<(string value, int totalLength)> ReadStringAndLength(
@@ -56,7 +47,7 @@ public class SshStreamReader
     )
     {
         byte[] encodedBytes = await ReadBinary(cancellationToken).ConfigureAwait(false);
-        return (SFTPStringEncoding.GetString(encodedBytes), sizeof(uint) + encodedBytes.Length);
+        return (SFTPIOConsts.StringEncoding.GetString(encodedBytes), sizeof(uint) + encodedBytes.Length);
     }
 
     public async Task<AccessFlags> ReadAccessFlags(CancellationToken cancellationToken = default) =>
@@ -110,7 +101,7 @@ public class SshStreamReader
     public async Task<byte[]> ReadBinary(CancellationToken cancellationToken = default)
     {
         uint size = await ReadUInt32(cancellationToken).ConfigureAwait(false);
-        if (size > MaxMessageLength)
+        if (size > SFTPIOConsts.MaxMessageLength)
         {
             throw new InvalidOperationException($"Refusing to handle message of length {size}");
         }
