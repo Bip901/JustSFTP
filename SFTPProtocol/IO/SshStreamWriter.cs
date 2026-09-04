@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Protocol.Enums;
 using JustSFTP.Protocol.Models;
+using JustSFTP.Protocol.Models.Responses;
 
 namespace JustSFTP.Protocol.IO;
 
@@ -14,6 +15,12 @@ namespace JustSFTP.Protocol.IO;
 /// </summary>
 public class SshStreamWriter : IDisposable
 {
+    /// <summary>
+    /// The SFTP v3 spec actually only defines the string encoding for the <see cref="SFTPStatus.ErrorMessage"/> field (UTF-8).
+    /// All other strings are undefined, thus we have to follow the de-facto standard.
+    /// OpenSSH is the most common SFTP server and sends strings as raw binary data.
+    /// Since it usually runs on Linux, which usually uses UTF-8 (no BOM), it is the de-facto standard.
+    /// </summary>
     private static readonly Encoding SFTPStringEncoding = new UTF8Encoding(false);
 
     private readonly Stream innerStream;
