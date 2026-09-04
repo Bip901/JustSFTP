@@ -52,8 +52,8 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         Stream outStream,
         SFTPPath root,
         TraceSource? traceSource = null,
-        int writeBufferSize = 1048576
-    ) // 1 MiB
+        int writeBufferSize = SshStreamReader.MaxMessageLength
+    )
         : this(inStream, outStream, new DefaultSFTPHandler(root), traceSource, writeBufferSize) { }
 
     /// <summary>
@@ -71,8 +71,8 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         Stream outStream,
         ISFTPHandler sftpHandler,
         TraceSource? traceSource = null,
-        int writeBufferSize = 1048576
-    ) // 1 MiB
+        int writeBufferSize = SshStreamReader.MaxMessageLength
+    )
     {
         reader = new SshStreamReader(inStream ?? throw new ArgumentNullException(nameof(inStream)));
         writer = new SshStreamWriter(outStream ?? throw new ArgumentNullException(nameof(outStream)), writeBufferSize);
