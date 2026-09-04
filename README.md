@@ -14,6 +14,13 @@ This project implements the [V3 version of the SFTP protocol](https://datatracke
 * [SFTP Client](./SFTPClient/README.md)
 * [SFTP Protocol Shared Library](./SFTPProtocol/README.md)
 
+## Supported Extensions
+
+Both the server and client support optional extensions to the SFTP v3 protocol.
+
+* [Posix Rename](./SFTPProtocol/Models/Requests/Extended/SFTPPosixRenameRequest.cs) (`posix-rename@openssh.com`), which enables atomically overwriting a file
+
+
 ## License
 
 Licensed under MIT license. See [LICENSE](./LICENSE) for details.
