@@ -125,13 +125,12 @@ public class SshStreamWriter : IDisposable
     /// </summary>
     public async Task Flush(CancellationToken cancellationToken = default)
     {
-        var data = memoryStream.ToArray();
-
         byte[] len = new byte[4];
-        BinaryPrimitives.WriteUInt32BigEndian(len, (uint)data.Length);
-
+        BinaryPrimitives.WriteUInt32BigEndian(len, (uint)memoryStream.Length);
         await innerStream.WriteAsync(len, cancellationToken).ConfigureAwait(false);
-        await innerStream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
+
+        memoryStream.Position = 0;
+        await memoryStream.CopyToAsync(innerStream, cancellationToken).ConfigureAwait(false);
 
         memoryStream.Position = 0;
         memoryStream.SetLength(0);
