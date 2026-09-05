@@ -11,7 +11,9 @@ using JustSFTP.Protocol.Enums;
 using JustSFTP.Protocol.IO;
 using JustSFTP.Protocol.Models;
 using JustSFTP.Protocol.Models.Requests;
+using JustSFTP.Protocol.Models.Requests.Extended;
 using JustSFTP.Protocol.Models.Responses;
+using JustSFTP.Protocol.Models.Responses.Extended;
 
 namespace JustSFTP.Client;
 
@@ -89,16 +91,9 @@ public class SFTPClient : IDisposable
     }
 
     /// <inheritdoc/>
-#pragma warning disable CA1816 // Dispose methods should call SuppressFinalize
     public void Dispose()
     {
-        Dispose(null);
-    }
-
-    private void Dispose(Exception? reason)
-    {
         GC.SuppressFinalize(this);
-#pragma warning restore CA1816 // Dispose methods should call SuppressFinalize
         writerSempahore?.Dispose();
         writerSempahore = null;
         ((IDisposable)writer).Dispose();
@@ -106,7 +101,7 @@ public class SFTPClient : IDisposable
         {
             reader.Stream.Dispose();
         }
-        ObjectDisposedException exception = new(nameof(SFTPClient), reason);
+        ObjectDisposedException exception = new(nameof(SFTPClient));
         foreach (PendingRequest pendingRequest in requestsAwaitingResponse.Values)
         {
             pendingRequest.TaskCompletionSource.TrySetException(exception);
@@ -173,7 +168,12 @@ public class SFTPClient : IDisposable
                     ex
                 );
             }
-            Dispose(ex);
+            foreach (PendingRequest pendingRequest in requestsAwaitingResponse.Values)
+            {
+                pendingRequest.TaskCompletionSource.TrySetException(ex);
+            }
+            requestsAwaitingResponse.Clear();
+            Dispose();
             throw ex;
         }
     }
@@ -260,12 +260,35 @@ public class SFTPClient : IDisposable
         [EnumeratorCancellation] CancellationToken cancellationToken = default
     )
     {
-        SFTPResponse openResponse = await RequestAsync(
-                new SFTPOpenDirRequest(GetNextRequestId(), path),
-                cancellationToken
-            )
-            .ConfigureAwait(false);
-        byte[] handle = CheckResponseTypeAndStatus<SFTPHandleResponse>(openResponse).Handle;
+        byte[] handle;
+        if (ServerExtensions != null && ServerExtensions.ContainsKey(Extensions.OPEN_DIR_EAGER))
+        {
+            SFTPResponse openEagerResponse = await RequestAsync(
+                    new SFTPOpenDirEagerRequest(GetNextRequestId(), path),
+                    cancellationToken,
+                    SFTPOpenDirEagerResponse.ReadAsync
+                )
+                .ConfigureAwait(false);
+            SFTPOpenDirEagerResponse response = CheckResponseTypeAndStatus<SFTPOpenDirEagerResponse>(openEagerResponse);
+            foreach (SFTPName name in response.Names)
+            {
+                yield return name;
+            }
+            if (!response.HasHandle)
+            {
+                yield break;
+            }
+            handle = response.Handle;
+        }
+        else
+        {
+            SFTPResponse openResponse = await RequestAsync(
+                    new SFTPOpenDirRequest(GetNextRequestId(), path),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            handle = CheckResponseTypeAndStatus<SFTPHandleResponse>(openResponse).Handle;
+        }
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();

@@ -11,19 +11,15 @@ using JustSFTP.Protocol.IO;
 using JustSFTP.Protocol.Models;
 using JustSFTP.Protocol.Models.Requests.Extended;
 using JustSFTP.Protocol.Models.Responses;
+using JustSFTP.Protocol.Models.Responses.Extended;
 
 namespace JustSFTP.Server;
 
 /// <summary>
 /// Serves a subtree of the regular filesystem over SFTP.
 /// </summary>
-public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
+public class DefaultSFTPHandler : ISFTPHandler, IDisposable
 {
-    /// <summary>
-    /// The extension name of the posix-rename extension.
-    /// </summary>
-    public const string SFTP_EXTENSION_POSIX_RENAME = "posix-rename@openssh.com";
-
     /// <summary>
     /// Maximum data read that we are willing to accept.
     /// Values mirrors OpenSSH's SFTP_MAX_READ_LENGTH.
@@ -32,19 +28,27 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
 
     private static readonly Uri _virtualroot = new("virt://", UriKind.Absolute);
     private readonly SFTPHandleCollection openHandles = new();
-    private readonly SFTPPath root = root;
+    private readonly SFTPPath root;
 
     /// <summary>
-    /// Optionally, server extensions to announce to clients.
+    /// Server extensions to announce to clients.
     /// </summary>
-    public SFTPExtensions? ServerExtensions { get; init; }
+    public SFTPExtensions ServerExtensions { get; set; }
+
+    public DefaultSFTPHandler(SFTPPath root)
+    {
+        this.root = root;
+        ServerExtensions = new SFTPExtensions(
+            new Dictionary<string, string>() { { Extensions.POSIX_RENAME, "1" }, { Extensions.OPEN_DIR_EAGER, "1" } }
+        );
+    }
 
     /// <inheritdoc/>
     public virtual Task<SFTPExtensions> Init(
         uint clientVersion,
         SFTPExtensions extensions,
         CancellationToken cancellationToken = default
-    ) => Task.FromResult(ServerExtensions ?? SFTPExtensions.None);
+    ) => Task.FromResult(ServerExtensions);
 
     /// <inheritdoc/>
     public virtual Task<byte[]> Open(
@@ -263,18 +267,39 @@ public class DefaultSFTPHandler(SFTPPath root) : ISFTPHandler, IDisposable
     public virtual async Task<SFTPResponse> Extended(
         uint requestId,
         string requestName,
-        Stream restOfRequest,
+        MemoryStream restOfRequest,
         CancellationToken cancellationToken = default
     )
     {
         switch (requestName)
         {
             case SFTPPosixRenameRequest.REQUEST_NAME:
+            {
                 SFTPPosixRenameRequest request = await SFTPPosixRenameRequest
                     .DeserializeAsync(requestId, restOfRequest, cancellationToken)
                     .ConfigureAwait(false);
                 Rename(new SFTPPath(request.OldPath), new SFTPPath(request.NewPath), allowOverwrite: true);
                 return new SFTPStatus(requestId, Status.Ok);
+            }
+            case SFTPOpenDirEagerRequest.REQUEST_NAME:
+            {
+                SFTPOpenDirEagerRequest request = await SFTPOpenDirEagerRequest
+                    .DeserializeAsync(requestId, restOfRequest, cancellationToken)
+                    .ConfigureAwait(false);
+                byte[] handle = await OpenDir(new SFTPPath(request.Path), cancellationToken).ConfigureAwait(false);
+                IEnumerator<SFTPName> enumerator = await ReadDir(handle, cancellationToken).ConfigureAwait(false);
+                List<SFTPName> results = [];
+                for (int i = 0; i < SFTPServer.READ_DIR_PAGE_SIZE && enumerator.MoveNext(); i++)
+                {
+                    results.Add(enumerator.Current);
+                }
+                if (results.Count < SFTPServer.READ_DIR_PAGE_SIZE)
+                {
+                    await Close(handle, cancellationToken).ConfigureAwait(false);
+                    handle = [];
+                }
+                return new SFTPOpenDirEagerResponse(requestId, handle, results);
+            }
             default:
                 throw new HandlerException(Status.OperationUnsupported);
         }

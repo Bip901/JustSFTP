@@ -17,13 +17,9 @@ namespace JustSFTP.Tests;
 
 public class TestEndToEnd
 {
-    private static readonly Dictionary<string, string> serverExtensions = new()
-    {
-        { "example-extension-server@openssh.com", "example-value-server" },
-    };
     private static readonly Dictionary<string, string> clientExtensions = new()
     {
-        { "example-extension-client@openssh.com", "example-value-client" },
+        { "example-extension-client@example.com", "example-value-client" },
     };
     private static readonly string[] expectedDirectoryListing = ["file1.txt", "file2.txt"];
     private const string exampleFileContents = "This is an example file for testing.\n";
@@ -35,7 +31,7 @@ public class TestEndToEnd
         clientTraceSource.Listeners.Add(new ConsoleTraceListener(useErrorStream: true));
         TraceSource serverTraceSource = new(nameof(SFTPServer), SourceLevels.All);
         serverTraceSource.Listeners.Add(new ConsoleTraceListener(useErrorStream: true));
-        await using DummyServer dummyServer = DummyServer.Run(new SFTPExtensions(serverExtensions), serverTraceSource);
+        await using DummyServer dummyServer = DummyServer.Run(serverTraceSource, out DefaultSFTPHandler sftpHandler);
         using SFTPClient client = new(
             dummyServer.ClientReadStream,
             dummyServer.ClientWriteStream,
@@ -46,7 +42,7 @@ public class TestEndToEnd
         // Test init handshake
         await client.InitAsync(clientExtensions);
         Assert.Equal(3u, client.ProtocolVersion);
-        Assert.Equivalent(client.ServerExtensions, serverExtensions);
+        Assert.Equivalent(client.ServerExtensions, sftpHandler.ServerExtensions);
         await Assert.ThrowsAsync<InvalidOperationException>(() => client.InitAsync(null));
 
         Task clientTask = Task.Run(() => client.RunAsync(clientCancel.Token));

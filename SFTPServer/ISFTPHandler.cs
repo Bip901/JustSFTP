@@ -70,7 +70,7 @@ public interface ISFTPHandler
     Task<SFTPResponse> Extended(
         uint requestId,
         string requestName,
-        Stream restOfRequest,
+        MemoryStream restOfRequest,
         CancellationToken cancellationToken = default
     )
     {

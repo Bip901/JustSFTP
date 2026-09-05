@@ -6,20 +6,21 @@
 
 This project implements the [V3 version of the SFTP protocol](https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-02), and just it - you are free to use any transport/encryption layer (e.g. using a library like [Microsoft's DevTunnels SSH](https://github.com/microsoft/dev-tunnels-ssh)), or OpenSSH's daemon - see [JustSFTP.Host](./SFTPHost/README.md).
 
-
 ## Contents of this repo
 
 * [SFTP Server](./SFTPServer/README.md)
-    * [SFTP Host](./SFTPHost/README.md)
+  * [SFTP Host](./SFTPHost/README.md)
 * [SFTP Client](./SFTPClient/README.md)
 * [SFTP Protocol Shared Library](./SFTPProtocol/README.md)
 
 ## Supported Extensions
 
-Both the server and client support optional extensions to the SFTP v3 protocol.
+Both the server and client support optional extensions to the SFTP v3 protocol:
 
-* [Posix Rename](./SFTPProtocol/Models/Requests/Extended/SFTPPosixRenameRequest.cs) (`posix-rename@openssh.com`), which enables atomically overwriting a file
+* [Posix Rename](./SFTPProtocol/Models/Requests/Extended/SFTPPosixRenameRequest.cs) (`posix-rename@openssh.com`), which enables atomically overwriting a file.
+* [Eager Directory Opening](./SFTPProtocol/Models/Requests/Extended/SFTPOpenDirEagerRequest.cs) (`open-dir-eager@justsftp`), which bundles 4 round-trip requests (open, read, read, close) into one, reducing directory listing latency by up to 75%.
 
+Users can also implement their own extensions.
 
 ## License
 

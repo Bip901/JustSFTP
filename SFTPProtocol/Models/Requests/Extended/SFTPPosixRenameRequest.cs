@@ -33,11 +33,11 @@ public record SFTPPosixRenameRequest(uint RequestId, string OldPath, string NewP
     /// <exception cref="ObjectDisposedException"/>
     public static async Task<SFTPPosixRenameRequest> DeserializeAsync(
         uint requestId,
-        Stream stream,
+        MemoryStream stream,
         CancellationToken cancellationToken
     )
     {
-        SshStreamReader reader = new(stream);
+        SshStreamReader reader = new(stream, (int)stream.Length);
         string oldPath = await reader.ReadString(cancellationToken).ConfigureAwait(false);
         string newPath = await reader.ReadString(cancellationToken).ConfigureAwait(false);
         return new(requestId, oldPath, newPath);

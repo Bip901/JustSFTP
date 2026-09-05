@@ -17,8 +17,16 @@ namespace JustSFTP.Server;
 /// </summary>
 public sealed class SFTPServer : ISFTPServer, IDisposable
 {
-    private const uint SERVER_SFTP_PROTOCOL_VERSION = 3;
-    private const int READ_DIR_PAGE_SIZE = 128;
+    /// <summary>
+    /// The protocol version to advertise when handshaking with clients.
+    /// </summary>
+    public const uint SERVER_SFTP_PROTOCOL_VERSION = 3;
+
+    /// <summary>
+    /// The maximum amount of file entries to include in a read dir response.
+    /// </summary>
+    public const int READ_DIR_PAGE_SIZE = 128;
+
     private delegate Task<SFTPResponse> MessageHandler(
         uint requestId,
         uint remainingLength,
