@@ -69,7 +69,7 @@ public class SFTPClient : IDisposable
     public SFTPClient(
         Stream inStream,
         Stream outStream,
-        int writeBufferSize = 1048576,
+        int writeBufferSize = SFTPIOConsts.MaxMessageLength,
         TraceSource? traceSource = null,
         bool ownsStreams = false
     )
