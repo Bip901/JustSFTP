@@ -34,6 +34,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     private readonly SshStreamWriter writer;
     private readonly ISFTPHandler sftpHandler;
     private uint protocolVersion;
+    private readonly int maxReadLength;
 
     private readonly Dictionary<RequestType, MessageHandler> messageHandlers;
 
@@ -44,6 +45,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     /// <param name="inStream">The stream to read from.</param>
     /// <param name="outStream">The stream to write to.</param>
     /// <param name="root">The root path in the local filesystem to serve from.</param>
+    /// <param name="maxReadLength">The maximum message length to allow reading.</param>
     /// <param name="writeBufferSize">The write buffer size in bytes. Longer messages will not be able to be written.</param>
     /// <param name="traceSource">Optionally, a trace source to log to. Defaults to a silent trace source. See also: <see cref="TraceEventIds"/>.</param>
     /// <exception cref="ArgumentNullException"></exception>
@@ -52,9 +54,10 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         Stream outStream,
         SFTPPath root,
         TraceSource? traceSource = null,
+        int maxReadLength = SFTPIOConsts.MaxMessageLength,
         int writeBufferSize = SFTPIOConsts.MaxMessageLength
     )
-        : this(inStream, outStream, new DefaultSFTPHandler(root), traceSource, writeBufferSize) { }
+        : this(inStream, outStream, new DefaultSFTPHandler(root), traceSource, maxReadLength, writeBufferSize) { }
 
     /// <summary>
     /// Creates a new <see cref="SFTPServer"/> over the given streams, serving files using the given <see cref="ISFTPHandler"/>.
@@ -63,6 +66,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
     /// <param name="inStream">The stream to read from.</param>
     /// <param name="outStream">The stream to write to.</param>
     /// <param name="sftpHandler">The SFTP handler.</param>
+    /// <param name="maxReadLength">The maximum message length to allow reading.</param>
     /// <param name="writeBufferSize">The write buffer size in bytes. Longer messages will not be able to be written.</param>
     /// <param name="traceSource">Optionally, a trace source to log to. Defaults to a silent trace source. See also: <see cref="TraceEventIds"/>.</param>
     /// <exception cref="ArgumentNullException"></exception>
@@ -71,12 +75,14 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         Stream outStream,
         ISFTPHandler sftpHandler,
         TraceSource? traceSource = null,
+        int maxReadLength = SFTPIOConsts.MaxMessageLength,
         int writeBufferSize = SFTPIOConsts.MaxMessageLength
     )
     {
-        reader = new SshStreamReader(inStream ?? throw new ArgumentNullException(nameof(inStream)));
+        reader = new SshStreamReader(inStream ?? throw new ArgumentNullException(nameof(inStream)), maxReadLength);
         writer = new SshStreamWriter(outStream ?? throw new ArgumentNullException(nameof(outStream)), writeBufferSize);
         this.sftpHandler = sftpHandler ?? throw new ArgumentNullException(nameof(sftpHandler));
+        this.maxReadLength = maxReadLength;
 
         messageHandlers = new()
         {
@@ -118,7 +124,7 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
             {
                 break;
             }
-            if (msgLength > SFTPIOConsts.MaxMessageLength)
+            if (msgLength > maxReadLength)
             {
                 throw new InvalidOperationException($"Bad message length {msgLength}");
             }

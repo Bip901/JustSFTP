@@ -19,13 +19,16 @@ public class SshStreamReader
     /// </summary>
     public Stream Stream { get; }
 
+    private readonly int maxMessageLength;
+
     /// <summary>
     /// Creates a new <see cref="SshStreamReader"/> that reads from the given stream.
     /// </summary>
     /// <exception cref="ArgumentNullException"></exception>
-    public SshStreamReader(Stream stream)
+    public SshStreamReader(Stream stream, int maxMessageLength = SFTPIOConsts.MaxMessageLength)
     {
         Stream = stream ?? throw new ArgumentNullException(nameof(stream));
+        this.maxMessageLength = maxMessageLength;
     }
 
     public async Task<byte> ReadByte(CancellationToken cancellationToken = default) =>
@@ -101,7 +104,7 @@ public class SshStreamReader
     public async Task<byte[]> ReadBinary(CancellationToken cancellationToken = default)
     {
         uint size = await ReadUInt32(cancellationToken).ConfigureAwait(false);
-        if (size > SFTPIOConsts.MaxMessageLength)
+        if (size > maxMessageLength)
         {
             throw new InvalidOperationException($"Refusing to handle message of length {size}");
         }

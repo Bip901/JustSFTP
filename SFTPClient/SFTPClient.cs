@@ -62,6 +62,7 @@ public class SFTPClient : IDisposable
     /// </summary>
     /// <param name="inStream">The stream to read from.</param>
     /// <param name="outStream">The stream to write to.</param>
+    /// <param name="maxReadLength">The maximum message length to allow reading.</param>
     /// <param name="writeBufferSize">The write buffer size in bytes. Longer messages will not be able to be written.</param>
     /// <param name="traceSource">Optionally, a trace source to log to. Defaults to a silent trace source. See also: <see cref="TraceEventIds"/>.</param>
     /// <param name="ownsStreams">Whether to dispose the inStream and outStream when this client is disposed.</param>
@@ -69,12 +70,13 @@ public class SFTPClient : IDisposable
     public SFTPClient(
         Stream inStream,
         Stream outStream,
+        int maxReadLength = SFTPIOConsts.MaxMessageLength,
         int writeBufferSize = SFTPIOConsts.MaxMessageLength,
         TraceSource? traceSource = null,
         bool ownsStreams = false
     )
     {
-        reader = new SshStreamReader(inStream ?? throw new ArgumentNullException(nameof(inStream)));
+        reader = new SshStreamReader(inStream ?? throw new ArgumentNullException(nameof(inStream)), maxReadLength);
         writer = new SshStreamWriter(
             outStream ?? throw new ArgumentNullException(nameof(outStream)),
             writeBufferSize,
