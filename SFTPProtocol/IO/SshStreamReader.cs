@@ -68,8 +68,8 @@ public class SshStreamReader
         ulong? size = flags.HasFlag(PFlags.Size) ? await ReadUInt64(cancellationToken).ConfigureAwait(false) : null;
         uint? owner = flags.HasFlag(PFlags.UidGid) ? await ReadUInt32(cancellationToken).ConfigureAwait(false) : null;
         uint? group = flags.HasFlag(PFlags.UidGid) ? await ReadUInt32(cancellationToken).ConfigureAwait(false) : null;
-        Permissions? permissions = flags.HasFlag(PFlags.Permissions)
-            ? (Permissions)await ReadUInt32(cancellationToken).ConfigureAwait(false)
+        PosixFileMode? permissions = flags.HasFlag(PFlags.Permissions)
+            ? (PosixFileMode)await ReadUInt32(cancellationToken).ConfigureAwait(false)
             : null;
         DateTimeOffset? atime = flags.HasFlag(PFlags.AccessModifiedTime)
             ? await ReadTime(cancellationToken).ConfigureAwait(false)

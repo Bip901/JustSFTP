@@ -19,7 +19,7 @@ public record SFTPAttributes
         FileSize = 0,
         User = SFTPUser.Root,
         Group = SFTPGroup.Root,
-        Permissions = Enums.Permissions.DefaultFile,
+        Permissions = PosixFileMode.DefaultFile,
         LastAccessedTime = DateTimeOffset.UnixEpoch,
         LastModifiedTime = DateTimeOffset.UnixEpoch,
     };
@@ -29,7 +29,7 @@ public record SFTPAttributes
     /// </summary>
     public static readonly SFTPAttributes DummyDirectory = DummyFile with
     {
-        Permissions = Enums.Permissions.DefaultDirectory,
+        Permissions = PosixFileMode.DefaultDirectory,
     };
 
     /// <summary>
@@ -52,7 +52,7 @@ public record SFTPAttributes
     /// <summary>
     /// The unix file permissions of this file or directory.
     /// </summary>
-    public Permissions? Permissions { get; init; }
+    public PosixFileMode? Permissions { get; init; }
 
     /// <summary>
     /// The last file read time, UTC.
@@ -119,9 +119,9 @@ public record SFTPAttributes
             Group = SFTPGroup.Root,
             Permissions = fileSystemInfo switch
             {
-                DirectoryInfo => Enums.Permissions.DefaultDirectory,
-                FileInfo => Enums.Permissions.DefaultFile,
-                _ => Enums.Permissions.None,
+                DirectoryInfo => PosixFileMode.DefaultDirectory,
+                FileInfo => PosixFileMode.DefaultFile,
+                _ => PosixFileMode.None,
             },
             LastAccessedTime = fileSystemInfo.LastAccessTimeUtc,
             LastModifiedTime = fileSystemInfo.LastWriteTimeUtc,
@@ -148,23 +148,30 @@ public record SFTPAttributes
         }
         else
         {
-            Permissions permissions = Permissions.Value;
-            permissionsString =
-                (permissions.HasFlag(Enums.Permissions.Directory) ? "d" : "-")
-                + AttrStr(
-                    permissions.HasFlag(Enums.Permissions.UserRead),
-                    permissions.HasFlag(Enums.Permissions.UserWrite),
-                    permissions.HasFlag(Enums.Permissions.UserExecute)
+            PosixFileMode permissions = Permissions.Value;
+            if (permissions.HasFlag(PosixFileMode.SymbolicLink))
+            {
+                permissionsString = "l";
+            }
+            else
+            {
+                permissionsString = permissions.HasFlag(PosixFileMode.Directory) ? "d" : "-";
+            }
+            permissionsString +=
+                AttrStr(
+                    permissions.HasFlag(PosixFileMode.UserRead),
+                    permissions.HasFlag(PosixFileMode.UserWrite),
+                    permissions.HasFlag(PosixFileMode.UserExecute)
                 )
                 + AttrStr(
-                    permissions.HasFlag(Enums.Permissions.GroupRead),
-                    permissions.HasFlag(Enums.Permissions.GroupWrite),
-                    permissions.HasFlag(Enums.Permissions.GroupExecute)
+                    permissions.HasFlag(PosixFileMode.GroupRead),
+                    permissions.HasFlag(PosixFileMode.GroupWrite),
+                    permissions.HasFlag(PosixFileMode.GroupExecute)
                 )
                 + AttrStr(
-                    permissions.HasFlag(Enums.Permissions.OtherRead),
-                    permissions.HasFlag(Enums.Permissions.OtherWrite),
-                    permissions.HasFlag(Enums.Permissions.OtherExecute)
+                    permissions.HasFlag(PosixFileMode.OtherRead),
+                    permissions.HasFlag(PosixFileMode.OtherWrite),
+                    permissions.HasFlag(PosixFileMode.OtherExecute)
                 );
         }
         return $"{permissionsString} {HardLinksAmount, 3} {userName, -8} {groupName, -8} {FileSize ?? 0, 8} {lastModifiedTime} {name}".ToString(

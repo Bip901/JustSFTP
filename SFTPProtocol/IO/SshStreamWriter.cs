@@ -40,7 +40,7 @@ public class SshStreamWriter : IDisposable
     public Task Write(PFlags fileAttributeFlags, CancellationToken cancellationToken = default) =>
         Write((uint)fileAttributeFlags, cancellationToken);
 
-    public Task Write(Permissions permissions, CancellationToken cancellationToken = default) =>
+    public Task Write(PosixFileMode permissions, CancellationToken cancellationToken = default) =>
         Write((uint)permissions, cancellationToken);
 
     public Task Write(Status status, CancellationToken cancellationToken = default) =>
