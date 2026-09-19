@@ -431,11 +431,8 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        var path = await reader.ReadString(cancellationToken).ConfigureAwait(false);
-        path = string.IsNullOrEmpty(path) || path == "." ? "/" : path;
-
-        var result = await sftpHandler.RealPath(new SFTPPath(path), cancellationToken).ConfigureAwait(false);
-
+        string path = await reader.ReadString(cancellationToken).ConfigureAwait(false);
+        SFTPPath result = await sftpHandler.RealPath(new SFTPPath(path), cancellationToken).ConfigureAwait(false);
         return new SFTPNameResponse(requestId, [new SFTPName(result.Path, new SFTPAttributes())]);
     }
 
