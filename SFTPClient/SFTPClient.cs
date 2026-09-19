@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -385,6 +386,25 @@ public class SFTPClient : IDisposable
             )
             .ConfigureAwait(false);
         CheckResponseTypeAndStatus<SFTPStatus>(response);
+    }
+
+    /// <summary>
+    /// Converts a relative or uncanonical path to absolute canonical path on the remote filesystem, resolving symlinks, '.', and '..'.
+    /// </summary>
+    /// <exception cref="HandlerException"/>
+    /// <exception cref="InvalidDataException"/>
+    /// <exception cref="OperationCanceledException"/>
+    /// <exception cref="ObjectDisposedException"/>
+    public async Task<SFTPName> RealPathAsync(string path, CancellationToken cancellationToken = default)
+    {
+        SFTPResponse response = await RequestAsync(new SFTPRealPathRequest(GetNextRequestId(), path), cancellationToken)
+            .ConfigureAwait(false);
+        SFTPNameResponse attributesResponse = CheckResponseTypeAndStatus<SFTPNameResponse>(response);
+        if (attributesResponse.Names.Count != 1)
+        {
+            throw new InvalidDataException($"Response contains {attributesResponse.Names.Count} names, expected 1.");
+        }
+        return attributesResponse.Names.Single();
     }
 
     /// <summary>

@@ -47,6 +47,10 @@ public class TestEndToEnd
 
         Task clientTask = Task.Run(() => client.RunAsync(clientCancel.Token));
 
+        // Test real path
+        SFTPName name = await client.RealPathAsync("./././.");
+        Assert.Equal("/", name.Name);
+
         // Test file reading
         await using (
             Stream fileStream = await client.OpenFileAsync("/example.txt", AccessFlags.Read, SFTPAttributes.DummyFile)
