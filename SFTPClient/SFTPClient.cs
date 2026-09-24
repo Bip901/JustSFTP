@@ -275,7 +275,10 @@ public class SFTPClient : IDisposable
                 SFTPOpenDirEagerResponse response = CheckResponseTypeAndStatus<SFTPOpenDirEagerResponse>(
                     openEagerResponse
                 );
-                handle = response.Handle; 
+                if (response.HasHandle)
+                {
+                    handle = response.Handle;
+                }
                 foreach (SFTPName name in response.Names)
                 {
                     yield return name;
@@ -284,6 +287,7 @@ public class SFTPClient : IDisposable
                 {
                     yield break;
                 }
+                Debug.Assert(handle != null);
             }
             else
             {
