@@ -261,60 +261,69 @@ public class SFTPClient : IDisposable
         [EnumeratorCancellation] CancellationToken cancellationToken = default
     )
     {
-        byte[] handle;
-        if (ServerExtensions != null && ServerExtensions.ContainsKey(Extensions.OPEN_DIR_EAGER))
+        byte[]? handle = null;
+        try
         {
-            SFTPResponse openEagerResponse = await RequestAsync(
-                    new SFTPOpenDirEagerRequest(GetNextRequestId(), path),
-                    cancellationToken,
-                    SFTPOpenDirEagerResponse.ReadAsync
-                )
-                .ConfigureAwait(false);
-            SFTPOpenDirEagerResponse response = CheckResponseTypeAndStatus<SFTPOpenDirEagerResponse>(openEagerResponse);
-            foreach (SFTPName name in response.Names)
+            if (ServerExtensions != null && ServerExtensions.ContainsKey(Extensions.OPEN_DIR_EAGER))
             {
-                yield return name;
+                SFTPResponse openEagerResponse = await RequestAsync(
+                        new SFTPOpenDirEagerRequest(GetNextRequestId(), path),
+                        cancellationToken,
+                        SFTPOpenDirEagerResponse.ReadAsync
+                    )
+                    .ConfigureAwait(false);
+                SFTPOpenDirEagerResponse response = CheckResponseTypeAndStatus<SFTPOpenDirEagerResponse>(
+                    openEagerResponse
+                );
+                handle = response.Handle; 
+                foreach (SFTPName name in response.Names)
+                {
+                    yield return name;
+                }
+                if (!response.HasHandle)
+                {
+                    yield break;
+                }
             }
-            if (!response.HasHandle)
+            else
             {
-                yield break;
-            }
-            handle = response.Handle;
-        }
-        else
-        {
-            SFTPResponse openResponse = await RequestAsync(
-                    new SFTPOpenDirRequest(GetNextRequestId(), path),
-                    cancellationToken
-                )
-                .ConfigureAwait(false);
-            handle = CheckResponseTypeAndStatus<SFTPHandleResponse>(openResponse).Handle;
-        }
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            SFTPNameResponse readDirResponse;
-            try
-            {
-                SFTPResponse readDirResponseRaw = await RequestAsync(
-                        new SFTPReadDirRequest(GetNextRequestId(), handle),
+                SFTPResponse openResponse = await RequestAsync(
+                        new SFTPOpenDirRequest(GetNextRequestId(), path),
                         cancellationToken
                     )
                     .ConfigureAwait(false);
-                readDirResponse = CheckResponseTypeAndStatus<SFTPNameResponse>(readDirResponseRaw);
+                handle = CheckResponseTypeAndStatus<SFTPHandleResponse>(openResponse).Handle;
             }
-            catch (Exception ex)
+
+            while (true)
             {
-                await CloseFileAsync(handle, cancellationToken).ConfigureAwait(false);
-                if (ex is HandlerException handlerException && handlerException.Status == Status.EndOfFile)
+                cancellationToken.ThrowIfCancellationRequested();
+                SFTPNameResponse readDirResponse;
+                try
+                {
+                    SFTPResponse readDirResponseRaw = await RequestAsync(
+                            new SFTPReadDirRequest(GetNextRequestId(), handle),
+                            cancellationToken
+                        )
+                        .ConfigureAwait(false);
+                    readDirResponse = CheckResponseTypeAndStatus<SFTPNameResponse>(readDirResponseRaw);
+                }
+                catch (HandlerException ex) when (ex.Status == Status.EndOfFile)
                 {
                     break;
                 }
-                throw;
+
+                foreach (SFTPName name in readDirResponse.Names)
+                {
+                    yield return name;
+                }
             }
-            foreach (SFTPName name in readDirResponse.Names)
+        }
+        finally
+        {
+            if (handle is not null)
             {
-                yield return name;
+                await CloseFileAsync(handle, CancellationToken.None).ConfigureAwait(false);
             }
         }
     }
