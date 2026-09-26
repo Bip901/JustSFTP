@@ -245,6 +245,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         if (TryGetFSObject(oldPath, out var fsOldObject) && fsOldObject is FileInfo)
         {
             File.Move(fsOldObject.FullName, GetPhysicalPath(newPath), allowOverwrite);
+            return;
         }
         throw new HandlerException(Status.NoSuchFile);
     }
