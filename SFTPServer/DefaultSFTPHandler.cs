@@ -64,10 +64,6 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
             throw new HandlerException(Status.Failure);
         }
         string physicalPath = GetPhysicalPath(path);
-        if (!File.Exists(physicalPath))
-        {
-            throw new HandlerException(Status.NoSuchFile);
-        }
         try
         {
             byte[] handle = openHandles.Add(
