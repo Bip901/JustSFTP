@@ -58,8 +58,8 @@ public class SshStreamReader
 
     public async Task<DateTimeOffset> ReadTime(CancellationToken cancellationToken = default)
     {
-        var seconds = await ReadUInt32(cancellationToken).ConfigureAwait(false);
-        return seconds > 0 ? DateTimeOffset.FromUnixTimeSeconds(seconds) : DateTimeOffset.MinValue;
+        uint seconds = await ReadUInt32(cancellationToken).ConfigureAwait(false);
+        return DateTimeOffset.FromUnixTimeSeconds(seconds);
     }
 
     public async Task<SFTPAttributes> ReadAttributes(CancellationToken cancellationToken = default)
