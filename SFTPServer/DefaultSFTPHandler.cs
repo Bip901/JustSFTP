@@ -26,18 +26,18 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     /// </summary>
     private const int MAX_RESPONSE_BUFFER_SIZE = SFTPIOConsts.MaxMessageLength - 1024;
 
-    private static readonly Uri _virtualroot = new("virt://", UriKind.Absolute);
     private readonly SFTPHandleCollection openHandles = new();
-    private readonly SFTPPath root;
+    private readonly SFTPRoot root;
 
     /// <summary>
     /// Server extensions to announce to clients.
     /// </summary>
     public SFTPExtensions ServerExtensions { get; set; }
 
+    /// <exception cref="ArgumentException">If the root path is null or empty.</exception>
     public DefaultSFTPHandler(SFTPPath root)
     {
-        this.root = root;
+        this.root = new SFTPRoot(root.Path);
         ServerExtensions = new SFTPExtensions(
             new Dictionary<string, string>() { { Extensions.POSIX_RENAME, "1" }, { Extensions.OPEN_DIR_EAGER, "1" } }
         );
@@ -212,8 +212,10 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     }
 
     /// <inheritdoc/>
-    public virtual Task<SFTPPath> RealPath(SFTPPath path, CancellationToken cancellationToken = default) =>
-        Task.FromResult(new SFTPPath(GetVirtualPath(path)));
+    public virtual Task<SFTPPath> RealPath(SFTPPath path, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new SFTPPath(root.Normalize(path.Path)));
+    }
 
     /// <inheritdoc/>
     public virtual Task<SFTPAttributes> Stat(SFTPPath path, CancellationToken cancellationToken = default) =>
@@ -305,11 +307,11 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         }
     }
 
-    /// <inheritdoc/>
-    public virtual string GetPhysicalPath(SFTPPath path) => Path.Join(root.Path, GetVirtualPath(path));
-
-    /// <inheritdoc/>
-    public virtual string GetVirtualPath(SFTPPath path) => new Uri(_virtualroot, path.Path).LocalPath;
+    /// <exception cref="HandlerException"/>
+    public virtual string GetPhysicalPath(SFTPPath path)
+    {
+        return root.GetPhysicalPath(path.Path);
+    }
 
     private Task DoStat(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default)
     {
