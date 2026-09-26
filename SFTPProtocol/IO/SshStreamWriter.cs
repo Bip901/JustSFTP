@@ -134,6 +134,8 @@ public class SshStreamWriter : IDisposable
 
         memoryStream.Position = 0;
         memoryStream.SetLength(0);
+
+        await innerStream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
