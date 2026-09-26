@@ -242,12 +242,30 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
 
     private void Rename(SFTPPath oldPath, SFTPPath newPath, bool allowOverwrite)
     {
-        if (TryGetFSObject(oldPath, out var fsOldObject) && fsOldObject is FileInfo)
+        if (!TryGetFSObject(oldPath, out FileSystemInfo? fsOldObject))
         {
-            File.Move(fsOldObject.FullName, GetPhysicalPath(newPath), allowOverwrite);
-            return;
+            throw new HandlerException(Status.NoSuchFile);
         }
-        throw new HandlerException(Status.NoSuchFile);
+        string newPhysicalPath = GetPhysicalPath(newPath);
+        if (fsOldObject is FileInfo)
+        {
+            File.Move(fsOldObject.FullName, newPhysicalPath, allowOverwrite);
+        }
+        else
+        {
+            if (allowOverwrite)
+            {
+                try
+                {
+                    Directory.Delete(newPhysicalPath);
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    // Good, no need to delete
+                }
+            }
+            Directory.Move(fsOldObject.FullName, newPhysicalPath);
+        }
     }
 
     public virtual Task<SFTPName> ReadLink(SFTPPath path, CancellationToken cancellationToken = default)
@@ -351,7 +369,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
 
     private bool TryGetFSObject(SFTPPath path, [NotNullWhen(true)] out FileSystemInfo? fileSystemObject)
     {
-        var resolved = GetPhysicalPath(path);
+        string resolved = GetPhysicalPath(path);
         if (Directory.Exists(resolved))
         {
             fileSystemObject = new DirectoryInfo(resolved);
