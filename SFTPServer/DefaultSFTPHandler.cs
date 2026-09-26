@@ -169,10 +169,10 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     /// <inheritdoc/>
     public virtual Task<byte[]> OpenDir(SFTPPath path, CancellationToken cancellationToken = default)
     {
-        FileSystemInfo[] fileSystemInfos;
+        DirectoryInfo directoryInfo;
         try
         {
-            fileSystemInfos = new DirectoryInfo(GetPhysicalPath(path)).GetFileSystemInfos();
+            directoryInfo = new DirectoryInfo(GetPhysicalPath(path));
         }
         catch (DirectoryNotFoundException ex)
         {
@@ -182,7 +182,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
             openHandles.Add(
                 new SFTPHandleCollection.OpenSFTPDirectory(
                     path,
-                    self => fileSystemInfos.Select(fso => SFTPName.FromFileSystemInfo(fso))
+                    self => directoryInfo.EnumerateFileSystemInfos().Select(fso => SFTPName.FromFileSystemInfo(fso))
                 )
             )
         );
