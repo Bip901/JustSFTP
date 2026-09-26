@@ -232,6 +232,10 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     /// <inheritdoc/>
     public virtual Task RemoveDir(SFTPPath path, CancellationToken cancellationToken = default)
     {
+        if (root.Normalize(path.Path) == "/")
+        {
+            throw new HandlerException(Status.PermissionDenied);
+        }
         if (TryGetFSObject(path, out var fsObject) && fsObject is DirectoryInfo)
         {
             Directory.Delete(fsObject.FullName);
