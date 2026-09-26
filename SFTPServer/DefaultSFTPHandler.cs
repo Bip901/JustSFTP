@@ -59,10 +59,6 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        if (openHandles.IsFull)
-        {
-            throw new HandlerException(Status.Failure);
-        }
         string physicalPath = GetPhysicalPath(path);
         try
         {
