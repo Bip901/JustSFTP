@@ -81,7 +81,7 @@ public class SshStreamReader
         if (flags.HasFlag(PFlags.Extended))
         {
             uint extendedCount = await ReadUInt32(cancellationToken).ConfigureAwait(false);
-            extendedAttributes = new Dictionary<string, string>((int)extendedCount);
+            extendedAttributes = [];
             for (var i = 0; i < extendedCount; i++)
             {
                 var type = await ReadString(cancellationToken).ConfigureAwait(false);
