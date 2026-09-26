@@ -150,11 +150,28 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
             : throw new HandlerException(Status.NoSuchFile);
 
     /// <inheritdoc/>
-    public virtual Task SetStat(
-        SFTPPath path,
-        SFTPAttributes attributes,
-        CancellationToken cancellationToken = default
-    ) => DoStat(path, attributes, cancellationToken);
+    public virtual Task SetStat(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default)
+    {
+        if (!TryGetFSObject(path, out FileSystemInfo? fileSystemInfo))
+        {
+            throw new HandlerException(Status.NoSuchFile);
+        }
+        if (attributes.FileSize != null && fileSystemInfo is FileInfo fileInfo)
+        {
+            using FileStream stream = fileInfo.Open(FileMode.Open, FileAccess.Write);
+            stream.SetLength((long)attributes.FileSize);
+        }
+        if (attributes.LastAccessedTime != null)
+        {
+            fileSystemInfo.LastAccessTimeUtc = attributes.LastAccessedTime.Value.UtcDateTime;
+        }
+        if (attributes.LastModifiedTime != null)
+        {
+            fileSystemInfo.LastWriteTimeUtc = attributes.LastModifiedTime.Value.UtcDateTime;
+        }
+        // TODO: Read/Write/Execute... etc.
+        return Task.CompletedTask;
+    }
 
     /// <inheritdoc/>
     public virtual Task FSetStat(
@@ -342,29 +359,6 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     public virtual string GetPhysicalPath(SFTPPath path)
     {
         return root.GetPhysicalPath(path.Path);
-    }
-
-    private Task DoStat(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default)
-    {
-        if (TryGetFSObject(path, out FileSystemInfo? fileSystemInfo))
-        {
-            if (attributes.FileSize != null && fileSystemInfo is FileInfo fileInfo)
-            {
-                using FileStream stream = fileInfo.Open(FileMode.Open, FileAccess.Write);
-                stream.SetLength((long)attributes.FileSize);
-            }
-            if (attributes.LastAccessedTime != null)
-            {
-                fileSystemInfo.LastAccessTimeUtc = attributes.LastAccessedTime.Value.UtcDateTime;
-            }
-            if (attributes.LastModifiedTime != null)
-            {
-                fileSystemInfo.LastWriteTimeUtc = attributes.LastModifiedTime.Value.UtcDateTime;
-            }
-            // TODO: Read/Write/Execute... etc.
-        }
-
-        return Task.CompletedTask;
     }
 
     private bool TryGetFSObject(SFTPPath path, [NotNullWhen(true)] out FileSystemInfo? fileSystemObject)
