@@ -337,18 +337,29 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
                     .DeserializeAsync(requestId, restOfRequest, cancellationToken)
                     .ConfigureAwait(false);
                 byte[] handle = await OpenDir(new SFTPPath(request.Path), cancellationToken).ConfigureAwait(false);
-                IEnumerator<SFTPName> enumerator = await ReadDir(handle, cancellationToken).ConfigureAwait(false);
-                List<SFTPName> results = [];
-                for (int i = 0; i < SFTPServer.READ_DIR_PAGE_SIZE && enumerator.MoveNext(); i++)
+                try
                 {
-                    results.Add(enumerator.Current);
+                    IEnumerator<SFTPName> enumerator = await ReadDir(handle, cancellationToken).ConfigureAwait(false);
+                    List<SFTPName> results = [];
+                    for (int i = 0; i < SFTPServer.READ_DIR_PAGE_SIZE && enumerator.MoveNext(); i++)
+                    {
+                        results.Add(enumerator.Current);
+                    }
+                    if (results.Count < SFTPServer.READ_DIR_PAGE_SIZE)
+                    {
+                        await Close(handle, cancellationToken).ConfigureAwait(false);
+                        handle = [];
+                    }
+                    return new SFTPOpenDirEagerResponse(requestId, handle, results);
                 }
-                if (results.Count < SFTPServer.READ_DIR_PAGE_SIZE)
+                catch
                 {
-                    await Close(handle, cancellationToken).ConfigureAwait(false);
-                    handle = [];
+                    if (handle.Length > 0)
+                    {
+                        await Close(handle, cancellationToken).ConfigureAwait(false);
+                    }
+                    throw;
                 }
-                return new SFTPOpenDirEagerResponse(requestId, handle, results);
             }
             default:
                 throw new HandlerException(Status.OperationUnsupported);
