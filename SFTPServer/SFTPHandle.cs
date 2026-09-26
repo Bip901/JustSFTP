@@ -22,6 +22,14 @@ internal class SFTPHandle(byte[] Handle) : IEquatable<SFTPHandle>
 
     public override int GetHashCode()
     {
-        return Handle.Length == sizeof(int) ? BitConverter.ToInt32(Handle) : Handle.Length;
+        if (Handle.Length == 0)
+        {
+            return 0;
+        }
+        if (Handle.Length < sizeof(int))
+        {
+            return Handle[0];
+        }
+        return BitConverter.ToInt32(Handle);
     }
 }
