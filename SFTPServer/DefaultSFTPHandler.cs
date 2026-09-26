@@ -84,7 +84,10 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     /// <inheritdoc/>
     public virtual Task Close(byte[] handle, CancellationToken cancellationToken = default)
     {
-        openHandles.Remove(handle);
+        if (!openHandles.Remove(handle))
+        {
+            throw new HandlerException(Status.Failure, "No such handle");
+        }
         return Task.CompletedTask;
     }
 
