@@ -127,7 +127,14 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         uint msgLength;
         do
         {
-            msgLength = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                msgLength = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
+            }
+            catch (EndOfStreamException)
+            {
+                break;
+            }
             if (msgLength == 0)
             {
                 break;
