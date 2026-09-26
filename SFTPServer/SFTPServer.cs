@@ -477,10 +477,10 @@ public sealed class SFTPServer : ISFTPServer, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        //NOTE: target and link appear to be swapped from the RFC??
-        //Tested with sftp (commandline tool), WinSCP and CyberDuck
-        var targetpath = new SFTPPath(await reader.ReadString(cancellationToken).ConfigureAwait(false));
-        var linkpath = new SFTPPath(await reader.ReadString(cancellationToken).ConfigureAwait(false));
+        // NOTE: target and link are swapped from the RFC due to OpenSSH's prevalent mistake.
+        // See comment on SFTPSymLinkRequest.cs.
+        SFTPPath targetpath = new SFTPPath(await reader.ReadString(cancellationToken).ConfigureAwait(false));
+        SFTPPath linkpath = new SFTPPath(await reader.ReadString(cancellationToken).ConfigureAwait(false));
 
         await sftpHandler.SymLink(linkpath, targetpath, cancellationToken).ConfigureAwait(false);
         return BuildStatus(requestId, Status.Ok);

@@ -6,7 +6,11 @@ using JustSFTP.Protocol.IO;
 namespace JustSFTP.Protocol.Models.Requests;
 
 /// <summary>
-/// SSH_FXP_SYMLINK
+/// SSH_FXP_SYMLINK.
+/// <remarks>
+/// The TargetPath and LinkPath argument order follows the OpenSSH mistake rather than the SFTP specification.
+/// See <see href="https://github.com/openssh/openssh-portable/blob/master/PROTOCOL">openssh-portable/PROTOCOL 4.1</see>.
+/// </remarks>
 /// </summary>
 public record SFTPSymLinkRequest(uint RequestId, string TargetPath, string LinkPath) : SFTPRequest(RequestId)
 {
