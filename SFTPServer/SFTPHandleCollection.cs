@@ -37,11 +37,6 @@ public class SFTPHandleCollection : IDisposable
         /// </summary>
         public SemaphoreSlim StreamSemaphore { get; } = new SemaphoreSlim(1, 1);
 
-        /// <summary>
-        /// The mode this was opened with.
-        /// </summary>
-        public FileMode FileMode { get; } = FileMode;
-
         /// <inheritdoc/>
         public override void Dispose()
         {
