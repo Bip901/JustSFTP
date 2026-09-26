@@ -69,7 +69,8 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
             byte[] handle = openHandles.Add(
                 new SFTPHandleCollection.OpenSFTPFile(
                     path,
-                    File.Open(physicalPath, fileMode, fileAccess, FileShare.ReadWrite)
+                    File.Open(physicalPath, fileMode, fileAccess, FileShare.ReadWrite),
+                    fileMode
                 )
             );
             return Task.FromResult(handle);
@@ -116,9 +117,24 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     )
     {
         SFTPHandleCollection.OpenSFTPFile file = openHandles.RequireFile(handle);
-        await RandomAccess
-            .WriteAsync(((FileStream)file.Stream).SafeFileHandle, data.AsMemory(), (long)offset, cancellationToken)
-            .ConfigureAwait(false);
+        if (file.FileMode == FileMode.Append)
+        {
+            await file.StreamSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await file.Stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                file.StreamSemaphore.Release();
+            }
+        }
+        else
+        {
+            await RandomAccess
+                .WriteAsync(((FileStream)file.Stream).SafeFileHandle, data.AsMemory(), (long)offset, cancellationToken)
+                .ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc/>
