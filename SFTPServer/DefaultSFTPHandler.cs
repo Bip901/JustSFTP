@@ -225,7 +225,17 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     /// <inheritdoc/>
     public virtual Task MakeDir(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default)
     {
-        Directory.CreateDirectory(GetPhysicalPath(path));
+        string physicalPath = GetPhysicalPath(path);
+        DirectoryInfo? parent = Directory.GetParent(physicalPath);
+        if (parent != null && !parent.Exists)
+        {
+            throw new HandlerException(Status.NoSuchFile);
+        }
+        if (Directory.Exists(physicalPath))
+        {
+            throw new HandlerException(Status.Failure, "Directory exists");
+        }
+        Directory.CreateDirectory(physicalPath);
         return Task.CompletedTask;
     }
 
