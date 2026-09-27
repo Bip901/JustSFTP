@@ -27,17 +27,15 @@ public record SFTPPosixRenameRequest(uint RequestId, string OldPath, string NewP
     }
 
     /// <summary>
-    /// Deserialize an <see cref="SFTPPosixRenameRequest"/> from the given stream.
+    /// Deserialize an <see cref="SFTPPosixRenameRequest"/> from the given stream reader.
     /// </summary>
     /// <exception cref="OperationCanceledException"/>
-    /// <exception cref="ObjectDisposedException"/>
     public static async Task<SFTPPosixRenameRequest> DeserializeAsync(
         uint requestId,
-        MemoryStream stream,
+        SshStreamReader reader,
         CancellationToken cancellationToken
     )
     {
-        SshStreamReader reader = new(stream, (int)stream.Length);
         string oldPath = await reader.ReadString(cancellationToken).ConfigureAwait(false);
         string newPath = await reader.ReadString(cancellationToken).ConfigureAwait(false);
         return new(requestId, oldPath, newPath);

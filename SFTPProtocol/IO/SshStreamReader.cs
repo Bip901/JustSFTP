@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
@@ -19,42 +20,68 @@ public class SshStreamReader
     /// </summary>
     public Stream Stream { get; }
 
-    private readonly int maxMessageLength;
+    /// <summary>
+    /// The length after which to consider the stream ended.
+    /// </summary>
+    public int RemainingLength { get; set; }
 
     /// <summary>
     /// Creates a new <see cref="SshStreamReader"/> that reads from the given stream.
     /// </summary>
     /// <exception cref="ArgumentNullException"></exception>
-    public SshStreamReader(Stream stream, int maxMessageLength = SFTPIOConsts.MaxMessageLength)
+    public SshStreamReader(Stream stream)
     {
         Stream = stream ?? throw new ArgumentNullException(nameof(stream));
-        this.maxMessageLength = maxMessageLength;
     }
 
-    public async Task<byte> ReadByte(CancellationToken cancellationToken = default) =>
-        (await ReadBinary(1, cancellationToken).ConfigureAwait(false))[0];
-
-    public async Task<uint> ReadUInt32(CancellationToken cancellationToken = default) =>
-        BinaryPrimitives.ReadUInt32BigEndian(await ReadBinary(4, cancellationToken).ConfigureAwait(false));
-
-    public async Task<ulong> ReadUInt64(CancellationToken cancellationToken = default) =>
-        BinaryPrimitives.ReadUInt64BigEndian(await ReadBinary(8, cancellationToken).ConfigureAwait(false));
-
-    public async Task<string> ReadString(CancellationToken cancellationToken = default)
-    {
-        return SFTPIOConsts.StringEncoding.GetString(await ReadBinary(cancellationToken).ConfigureAwait(false));
-    }
-
-    public async Task<(string value, int totalLength)> ReadStringAndLength(
+    /// <exception cref="InvalidDataException"></exception>
+    /// <exception cref="EndOfStreamException"></exception>
+    public async Task<byte> ReadMessageHeader(
+        int maxMessageLength = SFTPIOConsts.MaxMessageLength,
         CancellationToken cancellationToken = default
     )
     {
-        byte[] encodedBytes = await ReadBinary(cancellationToken).ConfigureAwait(false);
-        return (SFTPIOConsts.StringEncoding.GetString(encodedBytes), sizeof(uint) + encodedBytes.Length);
+        RemainingLength = sizeof(uint);
+        uint length = await ReadUInt32(cancellationToken).ConfigureAwait(false);
+        if (length > maxMessageLength || length < sizeof(byte))
+        {
+            throw new InvalidDataException($"Invalid message length {length}");
+        }
+        RemainingLength = (int)length;
+        return await ReadByte(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<AccessFlags> ReadAccessFlags(CancellationToken cancellationToken = default) =>
-        (AccessFlags)await ReadUInt32(cancellationToken).ConfigureAwait(false);
+    public async Task<byte> ReadByte(CancellationToken cancellationToken = default)
+    {
+        using IMemoryOwner<byte> memoryOwner = MemoryPool<byte>.Shared.Rent(sizeof(byte));
+        await ReadBinary(memoryOwner.Memory[..sizeof(byte)], cancellationToken).ConfigureAwait(false);
+        return memoryOwner.Memory.Span[0];
+    }
+
+    public async Task<uint> ReadUInt32(CancellationToken cancellationToken = default)
+    {
+        using IMemoryOwner<byte> memoryOwner = MemoryPool<byte>.Shared.Rent(sizeof(uint));
+        await ReadBinary(memoryOwner.Memory[..sizeof(uint)], cancellationToken).ConfigureAwait(false);
+        return BinaryPrimitives.ReadUInt32BigEndian(memoryOwner.Memory.Span);
+    }
+
+    public async Task<ulong> ReadUInt64(CancellationToken cancellationToken = default)
+    {
+        using IMemoryOwner<byte> memoryOwner = MemoryPool<byte>.Shared.Rent(sizeof(ulong));
+        await ReadBinary(memoryOwner.Memory[..sizeof(ulong)], cancellationToken).ConfigureAwait(false);
+        return BinaryPrimitives.ReadUInt64BigEndian(memoryOwner.Memory.Span);
+    }
+
+    public async Task<string> ReadString(CancellationToken cancellationToken = default)
+    {
+        byte[] bytes = await ReadBinary(cancellationToken).ConfigureAwait(false);
+        return SFTPIOConsts.StringEncoding.GetString(bytes);
+    }
+
+    public async Task<AccessFlags> ReadAccessFlags(CancellationToken cancellationToken = default)
+    {
+        return (AccessFlags)await ReadUInt32(cancellationToken).ConfigureAwait(false);
+    }
 
     public async Task<DateTimeOffset> ReadTime(CancellationToken cancellationToken = default)
     {
@@ -84,8 +111,8 @@ public class SshStreamReader
             extendedAttributes = [];
             for (var i = 0; i < extendedCount; i++)
             {
-                var type = await ReadString(cancellationToken).ConfigureAwait(false);
-                var data = await ReadString(cancellationToken).ConfigureAwait(false);
+                string type = await ReadString(cancellationToken).ConfigureAwait(false);
+                string data = await ReadString(cancellationToken).ConfigureAwait(false);
                 extendedAttributes.Add(type, data);
             }
         }
@@ -101,38 +128,55 @@ public class SshStreamReader
         };
     }
 
+    /// <exception cref="InvalidDataException"></exception>
+    /// <exception cref="EndOfStreamException"></exception>
     public async Task<byte[]> ReadBinary(CancellationToken cancellationToken = default)
     {
         uint size = await ReadUInt32(cancellationToken).ConfigureAwait(false);
-        if (size > maxMessageLength)
-        {
-            throw new InvalidOperationException($"Refusing to handle message of length {size}");
-        }
-        return await ReadBinary((int)size, cancellationToken).ConfigureAwait(false);
+        byte[] bytes = AllocBound(size);
+        await ReadBinary(bytes, cancellationToken).ConfigureAwait(false);
+        return bytes;
     }
 
-    public async Task<byte[]> ReadBinary(int length, CancellationToken cancellationToken = default)
+    /// <exception cref="InvalidDataException"></exception>
+    private byte[] AllocBound(uint length)
     {
         if (length == 0)
         {
             return Array.Empty<byte>();
         }
-        byte[] buffer = new byte[length];
-        int offset = 0;
-        while (offset < length)
+        if (length > RemainingLength)
         {
-            int bytesRead = await Stream
-                .ReadAsync(buffer.AsMemory(offset, length - offset), cancellationToken)
-                .ConfigureAwait(false);
+            throw new InvalidDataException($"{RemainingLength} bytes remaining but tried to allocate {length}");
+        }
+        return new byte[(int)length];
+    }
+
+    /// <exception cref="InvalidDataException"></exception>
+    /// <exception cref="EndOfStreamException"></exception>
+    public async Task ReadBinary(Memory<byte> output, CancellationToken cancellationToken = default)
+    {
+        if (output.Length == 0)
+        {
+            return;
+        }
+        if (output.Length > RemainingLength)
+        {
+            throw new InvalidDataException($"{RemainingLength} bytes remaining but tried to read {output.Length}");
+        }
+        int offset = 0;
+        while (offset < output.Length)
+        {
+            int bytesRead = await Stream.ReadAsync(output[offset..], cancellationToken).ConfigureAwait(false);
             if (bytesRead == 0)
             {
                 throw new EndOfStreamException(
-                    $"Unexpected end of stream while reading {length - offset}/{length} bytes"
+                    $"Unexpected end of stream while reading {output.Length - offset}/{output.Length} bytes"
                 );
             }
             offset += bytesRead;
         }
 
-        return buffer;
+        RemainingLength -= output.Length;
     }
 }

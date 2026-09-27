@@ -15,17 +15,17 @@ public class Program
 
     public static async Task Main(string[] args)
     {
-        var configurationbuilder = new ConfigurationBuilder()
+        IConfigurationBuilder configurationBuilder = new ConfigurationBuilder()
             .SetBasePath(Path.GetDirectoryName(Assembly.GetEntryAssembly()!.Location)!)
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-        var configuration = configurationbuilder.Build();
+        var configuration = configurationBuilder.Build();
 
         var serviceCollection = new ServiceCollection();
         serviceCollection.AddLogging(c => c.ClearProviders().AddNLog());
         serviceCollection.Configure<SFTPServerOptions>(options => configuration.GetSection("Server").Bind(options));
-        var serviceprovider = serviceCollection.BuildServiceProvider();
+        var serviceProvider = serviceCollection.BuildServiceProvider();
 
-        _logger = serviceprovider.GetRequiredService<ILogger<Program>>();
+        _logger = serviceProvider.GetRequiredService<ILogger<Program>>();
 
         AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
         {
@@ -33,21 +33,15 @@ public class Program
             Environment.Exit(1);
         };
 
-        var options = serviceprovider.GetRequiredService<IOptions<SFTPServerOptions>>();
+        IOptions<SFTPServerOptions> options = serviceProvider.GetRequiredService<IOptions<SFTPServerOptions>>();
 
         _logger.LogInformation("Starting server...");
-        using var stdin = Console.OpenStandardInput();
-        using var stdout = Console.OpenStandardOutput();
-        var sftpServerOptions = options.Value;
-        using var server = new SFTPServer(
-            stdin,
-            stdout,
-            new SFTPPath(sftpServerOptions.Root),
-            traceSource: null,
-            writeBufferSize: sftpServerOptions.MaxMessageSize
-        );
+        using Stream stdin = Console.OpenStandardInput();
+        using Stream stdout = Console.OpenStandardOutput();
+        SFTPServerOptions sftpServerOptions = options.Value;
+        using SFTPServer server = new(stdin, stdout, new DefaultSFTPHandler(new SFTPPath(sftpServerOptions.Root)));
 
-        using var cts = new CancellationTokenSource();
+        using CancellationTokenSource cts = new();
         await server.Run(cts.Token).ConfigureAwait(false);
         _logger.LogInformation("Server stopped...");
     }

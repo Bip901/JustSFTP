@@ -331,7 +331,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     public virtual async Task<SFTPResponse> Extended(
         uint requestId,
         string requestName,
-        MemoryStream restOfRequest,
+        SshStreamReader reader,
         CancellationToken cancellationToken = default
     )
     {
@@ -340,7 +340,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
             case SFTPPosixRenameRequest.REQUEST_NAME:
             {
                 SFTPPosixRenameRequest request = await SFTPPosixRenameRequest
-                    .DeserializeAsync(requestId, restOfRequest, cancellationToken)
+                    .DeserializeAsync(requestId, reader, cancellationToken)
                     .ConfigureAwait(false);
                 Rename(new SFTPPath(request.OldPath), new SFTPPath(request.NewPath), allowOverwrite: true);
                 return new SFTPStatus(requestId, Status.Ok);
@@ -348,7 +348,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
             case SFTPOpenDirEagerRequest.REQUEST_NAME:
             {
                 SFTPOpenDirEagerRequest request = await SFTPOpenDirEagerRequest
-                    .DeserializeAsync(requestId, restOfRequest, cancellationToken)
+                    .DeserializeAsync(requestId, reader, cancellationToken)
                     .ConfigureAwait(false);
                 byte[] handle = await OpenDir(new SFTPPath(request.Path), cancellationToken).ConfigureAwait(false);
                 try

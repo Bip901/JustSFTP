@@ -21,13 +21,13 @@ public class SshStreamWriter : IDisposable
     /// Creates a new <see cref="SshStreamWriter"/> that writes to the specified stream.
     /// </summary>
     /// <param name="stream">The underlying stream.</param>
-    /// <param name="bufferSize">The buffer size. Sent messages can't be longer than this number.</param>
+    /// <param name="initialBufferSize">The initial buffer size.</param>
     /// <param name="ownsStream">Whether to dispose the inner stream when disposing this.</param>
     /// <exception cref="ArgumentNullException"/>
-    public SshStreamWriter(Stream stream, int bufferSize, bool ownsStream = false)
+    public SshStreamWriter(Stream stream, int initialBufferSize, bool ownsStream = false)
     {
         innerStream = stream ?? throw new ArgumentNullException(nameof(stream));
-        memoryStream = new MemoryStream(bufferSize);
+        memoryStream = new MemoryStream(initialBufferSize);
         this.ownsStream = ownsStream;
     }
 
@@ -117,8 +117,10 @@ public class SshStreamWriter : IDisposable
         await Write(data, cancellationToken).ConfigureAwait(false);
     }
 
-    public Task Write(byte[] data, CancellationToken cancellationToken = default) =>
-        memoryStream.WriteAsync(data, 0, data.Length, cancellationToken);
+    public Task Write(byte[] data, CancellationToken cancellationToken = default)
+    {
+        return memoryStream.WriteAsync(data, 0, data.Length, cancellationToken);
+    }
 
     /// <summary>
     /// Writes the built message, prefixed with its size, to the underlying stream.
@@ -129,10 +131,10 @@ public class SshStreamWriter : IDisposable
         BinaryPrimitives.WriteUInt32BigEndian(len, (uint)memoryStream.Length);
         await innerStream.WriteAsync(len, cancellationToken).ConfigureAwait(false);
 
-        memoryStream.Position = 0;
-        await memoryStream.CopyToAsync(innerStream, cancellationToken).ConfigureAwait(false);
+        await innerStream
+            .WriteAsync(memoryStream.GetBuffer().AsMemory()[..(int)memoryStream.Length], cancellationToken)
+            .ConfigureAwait(false);
 
-        memoryStream.Position = 0;
         memoryStream.SetLength(0);
 
         await innerStream.FlushAsync(cancellationToken).ConfigureAwait(false);

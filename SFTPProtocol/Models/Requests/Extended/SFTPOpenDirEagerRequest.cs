@@ -27,17 +27,15 @@ public record SFTPOpenDirEagerRequest(uint RequestId, string Path) : SFTPExtende
     }
 
     /// <summary>
-    /// Deserialize an <see cref="SFTPOpenDirEagerRequest"/> from the given stream.
+    /// Deserialize an <see cref="SFTPOpenDirEagerRequest"/> from the given stream reader.
     /// </summary>
     /// <exception cref="OperationCanceledException"/>
-    /// <exception cref="ObjectDisposedException"/>
     public static async Task<SFTPOpenDirEagerRequest> DeserializeAsync(
         uint requestId,
-        MemoryStream stream,
+        SshStreamReader reader,
         CancellationToken cancellationToken
     )
     {
-        SshStreamReader reader = new(stream, (int)stream.Length);
         string path = await reader.ReadString(cancellationToken).ConfigureAwait(false);
         return new(requestId, path);
     }

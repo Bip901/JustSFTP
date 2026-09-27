@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using JustSFTP.Protocol;
 using JustSFTP.Protocol.Enums;
+using JustSFTP.Protocol.IO;
 using JustSFTP.Protocol.Models;
 using JustSFTP.Protocol.Models.Responses;
 
@@ -70,7 +71,7 @@ public interface ISFTPHandler
     Task<SFTPResponse> Extended(
         uint requestId,
         string requestName,
-        MemoryStream restOfRequest,
+        SshStreamReader reader,
         CancellationToken cancellationToken = default
     )
     {

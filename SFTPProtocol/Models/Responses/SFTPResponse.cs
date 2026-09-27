@@ -56,10 +56,17 @@ public abstract record SFTPResponse(uint RequestId)
     public static async Task<SFTPResponse> ReadAsync(
         SshStreamReader reader,
         CancellationToken cancellationToken,
-        Func<uint, ReadAsyncMethod?>? getExtendedReadAsyncMethod = null
+        Func<uint, ReadAsyncMethod?>? getExtendedReadAsyncMethod = null,
+        int maxMessageLength = SFTPIOConsts.MaxMessageLength
     )
     {
-        uint _messageLength = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false); // Ignore message length, all fields can be deduced from their types
+        reader.RemainingLength = sizeof(uint);
+        uint messageLength = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
+        if (messageLength > maxMessageLength)
+        {
+            throw new InvalidDataException($"Invalid message length {messageLength}");
+        }
+        reader.RemainingLength = (int)messageLength;
         ResponseType responseType = (ResponseType)await reader.ReadByte(cancellationToken).ConfigureAwait(false);
         uint requestId = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
         if (responseType == ResponseType.Extended)

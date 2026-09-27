@@ -54,6 +54,7 @@ public class SFTPClient : IDisposable
     private readonly SshStreamReader reader;
     private readonly SshStreamWriter writer;
     private readonly bool ownsStreams;
+    private readonly int maxMessageLength;
     private bool initCalled;
     private uint lastRequestId = 0;
 
@@ -65,29 +66,30 @@ public class SFTPClient : IDisposable
     /// </summary>
     /// <param name="inStream">The stream to read from.</param>
     /// <param name="outStream">The stream to write to.</param>
-    /// <param name="maxReadLength">The maximum message length to allow reading.</param>
-    /// <param name="writeBufferSize">The write buffer size in bytes. Longer messages will not be able to be written.</param>
+    /// <param name="maxMessageLength">The maximum message length to allow reading.</param>
+    /// <param name="initialWriteBufferSize">The initial write buffer size in bytes.</param>
     /// <param name="traceSource">Optionally, a trace source to log to. Defaults to a silent trace source. See also: <see cref="TraceEventIds"/>.</param>
     /// <param name="ownsStreams">Whether to dispose the inStream and outStream when this client is disposed.</param>
     /// <exception cref="ArgumentNullException"></exception>
     public SFTPClient(
         Stream inStream,
         Stream outStream,
-        int maxReadLength = SFTPIOConsts.MaxMessageLength,
-        int writeBufferSize = SFTPIOConsts.MaxMessageLength,
+        int maxMessageLength = SFTPIOConsts.MaxMessageLength,
+        int initialWriteBufferSize = SFTPIOConsts.MaxMessageLength,
         TraceSource? traceSource = null,
         bool ownsStreams = false
     )
     {
-        reader = new SshStreamReader(inStream ?? throw new ArgumentNullException(nameof(inStream)), maxReadLength);
+        reader = new SshStreamReader(inStream ?? throw new ArgumentNullException(nameof(inStream)));
         writer = new SshStreamWriter(
             outStream ?? throw new ArgumentNullException(nameof(outStream)),
-            writeBufferSize,
+            initialWriteBufferSize,
             ownsStreams
         );
         writerSempahore = new(0, 1);
         requestsAwaitingResponse = [];
         TraceSource = traceSource ?? new TraceSource(nameof(SFTPClient), SourceLevels.Off);
+        this.maxMessageLength = maxMessageLength;
         this.ownsStreams = ownsStreams;
     }
 
@@ -132,7 +134,8 @@ public class SFTPClient : IDisposable
                     .ReadAsync(
                         reader,
                         cancellationToken,
-                        requestId => requestsAwaitingResponse.GetValueOrDefault(requestId)?.ExtendedReadAsyncMethod
+                        requestId => requestsAwaitingResponse.GetValueOrDefault(requestId)?.ExtendedReadAsyncMethod,
+                        maxMessageLength
                     )
                     .ConfigureAwait(false);
                 TraceSource.TraceEvent(
@@ -612,23 +615,18 @@ public class SFTPClient : IDisposable
         }
         await writer.Flush(cancellationToken).ConfigureAwait(false);
 
-        uint msglen = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
-        if (msglen < 5)
-            throw new InvalidDataException($"Message length {msglen} is too short");
-        byte typeByte = await reader.ReadByte(cancellationToken).ConfigureAwait(false);
+        byte typeByte = await reader.ReadMessageHeader(maxMessageLength, cancellationToken).ConfigureAwait(false);
         if (typeByte != (byte)ResponseType.Version)
             throw new InvalidDataException($"Expected Version response, got {typeByte}");
 
         uint serverVersion = await reader.ReadUInt32(cancellationToken).ConfigureAwait(false);
 
-        msglen -= 5; // We've already read 1 byte for the type and 4 for the server version
-        var serverExtensions = new Dictionary<string, string>();
-        while (msglen > 0)
+        Dictionary<string, string> serverExtensions = [];
+        while (reader.RemainingLength > 0)
         {
-            (string name, int nameLength) = await reader.ReadStringAndLength(cancellationToken).ConfigureAwait(false);
-            (string data, int dataLength) = await reader.ReadStringAndLength(cancellationToken).ConfigureAwait(false);
+            string name = await reader.ReadString(cancellationToken).ConfigureAwait(false);
+            string data = await reader.ReadString(cancellationToken).ConfigureAwait(false);
             serverExtensions[name] = data;
-            msglen -= (uint)(nameLength + dataLength);
         }
         ServerExtensions = serverExtensions;
 
