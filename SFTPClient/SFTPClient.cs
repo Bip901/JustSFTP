@@ -215,21 +215,12 @@ public class SFTPClient : IDisposable
         {
             try
             {
-                SFTPResponse statResponse = await RequestAsync(
-                        new SFTPFStatRequest(GetNextRequestId(), handle),
-                        cancellationToken
-                    )
-                    .ConfigureAwait(false);
-                SFTPAttributes attrs = CheckResponseTypeAndStatus<SFTPAttributesResponse>(statResponse).Attrs;
-                length = (long)(
-                    attrs.FileSize ?? throw new InvalidDataException("FStat response contains no file size")
-                );
-                if (length < 0)
+                SFTPAttributes attrs = await FStatAsync(handle, cancellationToken).ConfigureAwait(false);
+                if (!attrs.FileSize.HasValue)
                 {
-                    throw new InvalidDataException(
-                        $"FStat response returned a large file size, overflowed to {length}."
-                    );
+                    throw new InvalidDataException("FStat response contains no file size");
                 }
+                length = (long)attrs.FileSize.Value;
             }
             catch
             {
@@ -530,6 +521,41 @@ public class SFTPClient : IDisposable
     {
         SFTPResponse response = await RequestAsync(
                 new SFTPWriteRequest(GetNextRequestId(), handle, offset, data),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        CheckResponseTypeAndStatus<SFTPStatus>(response);
+    }
+
+    /// <exception cref="HandlerException"></exception>
+    /// <exception cref="InvalidDataException"></exception>
+    internal async Task<SFTPAttributes> FStatAsync(byte[] handle, CancellationToken cancellationToken = default)
+    {
+        SFTPResponse fstatResponse = await RequestAsync(
+                new SFTPFStatRequest(GetNextRequestId(), handle),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        SFTPAttributes attrs = CheckResponseTypeAndStatus<SFTPAttributesResponse>(fstatResponse).Attrs;
+        if (attrs.FileSize.HasValue && attrs.FileSize.Value < 0)
+        {
+            throw new InvalidDataException(
+                $"FStat response returned a large file size, overflowed to {attrs.FileSize.Value}."
+            );
+        }
+        return attrs;
+    }
+
+    /// <exception cref="HandlerException"></exception>
+    /// <exception cref="InvalidDataException"></exception>
+    internal async Task FSetStatAsync(
+        byte[] handle,
+        SFTPAttributes attributes,
+        CancellationToken cancellationToken = default
+    )
+    {
+        SFTPResponse response = await RequestAsync(
+                new SFTPFSetStatRequest(GetNextRequestId(), handle, attributes),
                 cancellationToken
             )
             .ConfigureAwait(false);

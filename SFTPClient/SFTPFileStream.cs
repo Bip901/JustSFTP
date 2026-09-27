@@ -6,6 +6,7 @@ using FileAbstractions;
 using FileAbstractions.Streams;
 using JustSFTP.Protocol;
 using JustSFTP.Protocol.Enums;
+using JustSFTP.Protocol.Models;
 
 namespace JustSFTP.Client;
 
@@ -19,7 +20,7 @@ namespace JustSFTP.Client;
 /// which don't use nor change the <see cref="Position"/>. These can be used to consume all available bandwidth with <see cref="System.IO.Pipelines.PipeWriter"/>
 /// without waiting for the full response (a round-trip) before requesting the next byte range.
 /// </remarks>
-public sealed class SFTPFileStream : Stream, IConcurrentStream, IAsyncDisposableCancelable
+public sealed class SFTPFileStream : Stream, IConcurrentStream, IAsyncDisposableCancelable, IHasFileAttributes
 {
     /// <inheritdoc/>
     public override bool CanRead => canRead;
@@ -31,7 +32,7 @@ public sealed class SFTPFileStream : Stream, IConcurrentStream, IAsyncDisposable
     public override bool CanSeek => canSeek;
 
     /// <summary>
-    /// The length of the remote file in bytes. This property is only available if the stream was opened with seeking support.
+    /// The length of the remote file in bytes. This property is only available if the stream was opened with seeking support or <see cref="GetAttributesAsync"/> was called.
     /// </summary>
     public override long Length => length == -1 ? throw new NotSupportedException() : length;
     private long length;
@@ -184,12 +185,12 @@ public sealed class SFTPFileStream : Stream, IConcurrentStream, IAsyncDisposable
     }
 
     /// <summary>
-    /// Since this method is not async, you should use <see cref="SFTPClient.SetStatAsync"/> instead.
+    /// Since this method is not async, you should use <see cref="SetAttributesAsync"/> instead.
     /// </summary>
     /// <exception cref="NotSupportedException"></exception>
     public override void SetLength(long value)
     {
-        throw new NotSupportedException("Use SetStatAsync instead.");
+        throw new NotSupportedException("Use SetAttributesAsync instead.");
     }
 
     /// <summary>
@@ -228,5 +229,49 @@ public sealed class SFTPFileStream : Stream, IConcurrentStream, IAsyncDisposable
     public void SetDisposeCancellationToken(CancellationToken cancellationToken)
     {
         this.disposeCancellationToken = cancellationToken;
+    }
+
+    /// <inheritdoc/>
+    public async Task<FileAbstractions.FileAttributes> GetAttributesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            SFTPAttributes attrs = await client.FStatAsync(fileHandle, cancellationToken).ConfigureAwait(false);
+            if (attrs.FileSize.HasValue)
+            {
+                length = (long)attrs.FileSize.Value;
+            }
+            return attrs.ToFileAttributes();
+        }
+        catch (HandlerException ex) when (ex.Status == Status.NoSuchFile)
+        {
+            throw new FileNotFoundException(null, ex);
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task SetAttributesAsync(
+        FileAbstractions.FileAttributes attributes,
+        CancellationToken cancellationToken
+    )
+    {
+        if (attributes.FileSize > long.MaxValue)
+        {
+            throw new InvalidOperationException($"File size {attributes.FileSize} too large");
+        }
+        try
+        {
+            await client
+                .FSetStatAsync(fileHandle, attributes.ToSetStatSFTPAttributes(), cancellationToken)
+                .ConfigureAwait(false);
+            if (attributes.FileSize.HasValue)
+            {
+                length = (long)attributes.FileSize.Value;
+            }
+        }
+        catch (HandlerException ex) when (ex.Status == Status.NoSuchFile)
+        {
+            throw new FileNotFoundException(null, ex);
+        }
     }
 }
