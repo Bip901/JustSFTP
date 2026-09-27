@@ -10,17 +10,15 @@ namespace JustSFTP.Server;
 /// <summary>
 /// Represents an open SFTP file or directory.
 /// </summary>
-/// <param name="Path">The path to the file or directory.</param>
-public abstract record class OpenSFTPFileOrDirectory(SFTPPath Path) : IDisposable
+public abstract record class OpenSFTPFileOrDirectory : IDisposable
 {
     /// <inheritdoc/>
     public virtual void Dispose() { }
 }
 
-/// <param name="Path">The path to the file or directory.</param>
 /// <param name="Stream">The open file stream.</param>
 /// <param name="FileMode"> The mode this was opened with.</param>
-public record OpenSFTPFile(SFTPPath Path, Stream Stream, FileMode FileMode) : OpenSFTPFileOrDirectory(Path)
+public record OpenSFTPFile(FileStream Stream, FileMode FileMode) : OpenSFTPFileOrDirectory
 {
     /// <summary>
     /// The semaphore to use when using non-concurrent stream APIs.
@@ -36,10 +34,15 @@ public record OpenSFTPFile(SFTPPath Path, Stream Stream, FileMode FileMode) : Op
     }
 }
 
-public record OpenSFTPDirectory(SFTPPath Path, Func<OpenSFTPDirectory, IEnumerable<SFTPName>> GetChildren)
-    : OpenSFTPFileOrDirectory(Path),
+public record OpenSFTPDirectory(string Path, Func<OpenSFTPDirectory, IEnumerable<SFTPName>> GetChildren)
+    : OpenSFTPFileOrDirectory,
         IEnumerator<SFTPName>
 {
+    /// <summary>
+    /// The path to the directory.
+    /// </summary>
+    public string Path { get; } = Path;
+
     /// <exception cref="InvalidOperationException"/>
     public SFTPName Current => inner?.Current ?? throw new InvalidOperationException();
 

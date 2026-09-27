@@ -12,6 +12,7 @@ using JustSFTP.Protocol.Models;
 using JustSFTP.Protocol.Models.Requests.Extended;
 using JustSFTP.Protocol.Models.Responses;
 using JustSFTP.Protocol.Models.Responses.Extended;
+using Microsoft.Win32.SafeHandles;
 
 namespace JustSFTP.Server;
 
@@ -63,7 +64,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         try
         {
             byte[] handle = openHandles.Add(
-                new OpenSFTPFile(path, File.Open(physicalPath, fileMode, fileAccess, FileShare.ReadWrite), fileMode)
+                new OpenSFTPFile(File.Open(physicalPath, fileMode, fileAccess, FileShare.ReadWrite), fileMode)
             );
             return Task.FromResult(handle);
         }
@@ -98,7 +99,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         }
         byte[] buffer = new byte[Math.Min(MAX_RESPONSE_BUFFER_SIZE, length)];
         int bytesRead = await RandomAccess
-            .ReadAsync(((FileStream)file.Stream).SafeFileHandle, buffer.AsMemory(), (long)offset, cancellationToken)
+            .ReadAsync(file.Stream.SafeFileHandle, buffer.AsMemory(), (long)offset, cancellationToken)
             .ConfigureAwait(false);
         return buffer[..bytesRead];
     }
@@ -127,22 +128,45 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         else
         {
             await RandomAccess
-                .WriteAsync(((FileStream)file.Stream).SafeFileHandle, data.AsMemory(), (long)offset, cancellationToken)
+                .WriteAsync(file.Stream.SafeFileHandle, data.AsMemory(), (long)offset, cancellationToken)
                 .ConfigureAwait(false);
         }
     }
 
     /// <inheritdoc/>
-    public virtual Task<SFTPAttributes> LStat(SFTPPath path, CancellationToken cancellationToken = default) =>
-        TryGetFSObject(path, out var fso)
-            ? Task.FromResult(SFTPAttributes.FromFileSystemInfo(fso))
-            : throw new HandlerException(Status.NoSuchFile);
+    public virtual Task<SFTPAttributes> LStat(SFTPPath path, CancellationToken cancellationToken = default)
+    {
+        if (!TryGetFSObject(path, out var fso))
+        {
+            throw new HandlerException(Status.NoSuchFile);
+        }
+        return Task.FromResult(SFTPAttributes.FromFileSystemInfo(fso));
+    }
 
     /// <inheritdoc/>
-    public virtual Task<SFTPAttributes> FStat(byte[] handle, CancellationToken cancellationToken = default) =>
-        openHandles.TryGet(handle, out var openFile)
-            ? Stat(openFile.Path, cancellationToken)
-            : throw new HandlerException(Status.NoSuchFile);
+    public virtual Task<SFTPAttributes> FStat(byte[] handle, CancellationToken cancellationToken = default)
+    {
+        if (!openHandles.TryGet(handle, out OpenSFTPFileOrDirectory? openFile))
+        {
+            throw new HandlerException(Status.NoSuchFile);
+        }
+        if (openFile is OpenSFTPDirectory openDirectory)
+        {
+            return Stat(new SFTPPath(openDirectory.Path), cancellationToken);
+        }
+        SafeFileHandle fileHandle = ((OpenSFTPFile)openFile).Stream.SafeFileHandle;
+        return Task.FromResult(
+            new SFTPAttributes()
+            {
+                FileSize = (ulong)RandomAccess.GetLength(fileHandle),
+                User = SFTPUser.Root,
+                Group = SFTPGroup.Root,
+                Permissions = PosixFileMode.DefaultFile,
+                LastAccessedTime = File.GetLastAccessTimeUtc(fileHandle),
+                LastModifiedTime = File.GetLastWriteTimeUtc(fileHandle),
+            }
+        );
+    }
 
     /// <inheritdoc/>
     public virtual Task SetStat(SFTPPath path, SFTPAttributes attributes, CancellationToken cancellationToken = default)
@@ -173,10 +197,32 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         byte[] handle,
         SFTPAttributes attributes,
         CancellationToken cancellationToken = default
-    ) =>
-        openHandles.TryGet(handle, out var openFile)
-            ? SetStat(openFile.Path, attributes, cancellationToken)
-            : throw new HandlerException(Status.NoSuchFile);
+    )
+    {
+        if (!openHandles.TryGet(handle, out OpenSFTPFileOrDirectory? openFile))
+        {
+            throw new HandlerException(Status.NoSuchFile);
+        }
+        if (openFile is OpenSFTPDirectory openDirectory)
+        {
+            return SetStat(new SFTPPath(openDirectory.Path), attributes, cancellationToken);
+        }
+        SafeFileHandle fileHandle = ((OpenSFTPFile)openFile).Stream.SafeFileHandle;
+        if (attributes.FileSize.HasValue)
+        {
+            RandomAccess.SetLength(fileHandle, (long)attributes.FileSize);
+        }
+        if (attributes.LastAccessedTime.HasValue)
+        {
+            File.SetLastAccessTimeUtc(fileHandle, attributes.LastAccessedTime.Value.UtcDateTime);
+        }
+        if (attributes.LastModifiedTime.HasValue)
+        {
+            File.SetLastWriteTimeUtc(fileHandle, attributes.LastModifiedTime.Value.UtcDateTime);
+        }
+        // TODO: Read/Write/Execute... etc.
+        return Task.CompletedTask;
+    }
 
     /// <inheritdoc/>
     public virtual Task<byte[]> OpenDir(SFTPPath path, CancellationToken cancellationToken = default)
@@ -193,7 +239,10 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         }
         return Task.FromResult(
             openHandles.Add(
-                new OpenSFTPDirectory(path, self => fileSystemInfos.Select(fso => SFTPName.FromFileSystemInfo(fso)))
+                new OpenSFTPDirectory(
+                    directoryInfo.FullName,
+                    self => fileSystemInfos.Select(fso => SFTPName.FromFileSystemInfo(fso))
+                )
             )
         );
     }
