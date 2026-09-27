@@ -26,7 +26,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     /// </summary>
     private const int MAX_RESPONSE_BUFFER_SIZE = SFTPIOConsts.MaxMessageLength - 1024;
 
-    private readonly SFTPHandleCollection openHandles = new();
+    private readonly SFTPHandleCollection<OpenSFTPFileOrDirectory> openHandles = new();
     private readonly SFTPRoot root;
 
     /// <summary>
@@ -63,11 +63,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         try
         {
             byte[] handle = openHandles.Add(
-                new SFTPHandleCollection.OpenSFTPFile(
-                    path,
-                    File.Open(physicalPath, fileMode, fileAccess, FileShare.ReadWrite),
-                    fileMode
-                )
+                new OpenSFTPFile(path, File.Open(physicalPath, fileMode, fileAccess, FileShare.ReadWrite), fileMode)
             );
             return Task.FromResult(handle);
         }
@@ -95,7 +91,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        SFTPHandleCollection.OpenSFTPFile file = openHandles.RequireFile(handle);
+        OpenSFTPFile file = RequireFile(handle);
         if (offset >= (ulong)file.Stream.Length)
         {
             throw new HandlerException(Status.EndOfFile);
@@ -115,7 +111,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         CancellationToken cancellationToken = default
     )
     {
-        SFTPHandleCollection.OpenSFTPFile file = openHandles.RequireFile(handle);
+        OpenSFTPFile file = RequireFile(handle);
         if (file.FileMode == FileMode.Append)
         {
             await file.StreamSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -197,10 +193,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         }
         return Task.FromResult(
             openHandles.Add(
-                new SFTPHandleCollection.OpenSFTPDirectory(
-                    path,
-                    self => fileSystemInfos.Select(fso => SFTPName.FromFileSystemInfo(fso))
-                )
+                new OpenSFTPDirectory(path, self => fileSystemInfos.Select(fso => SFTPName.FromFileSystemInfo(fso)))
             )
         );
     }
@@ -208,7 +201,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     /// <inheritdoc/>
     public virtual Task<IEnumerator<SFTPName>> ReadDir(byte[] handle, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult((IEnumerator<SFTPName>)openHandles.RequireDirectory(handle));
+        return Task.FromResult((IEnumerator<SFTPName>)RequireDirectory(handle));
     }
 
     /// <inheritdoc/>
@@ -401,6 +394,40 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         }
         fileSystemObject = null;
         return false;
+    }
+
+    /// <summary>
+    /// Throws an <see cref="HandlerException"/> with <see cref="Status.NoSuchFile"/> if the given handle does not correspond to an open file.
+    /// </summary>
+    /// <returns>The matching open file.</returns>
+    /// <exception cref="HandlerException"/>
+    private OpenSFTPFile RequireFile(byte[] handle)
+    {
+        if (
+            !openHandles.TryGet(handle, out OpenSFTPFileOrDirectory? fileOrDirectory)
+            || fileOrDirectory is not OpenSFTPFile file
+        )
+        {
+            throw new HandlerException(Status.NoSuchFile);
+        }
+        return file;
+    }
+
+    /// <summary>
+    /// Throws an <see cref="HandlerException"/> with <see cref="Status.NoSuchFile"/> if the given handle does not correspond to an open directory.
+    /// </summary>
+    /// <returns>The matching open directory.</returns>
+    /// <exception cref="HandlerException"/>
+    private OpenSFTPDirectory RequireDirectory(byte[] handle)
+    {
+        if (
+            !openHandles.TryGet(handle, out OpenSFTPFileOrDirectory? fileOrDirectory)
+            || fileOrDirectory is not OpenSFTPDirectory directory
+        )
+        {
+            throw new HandlerException(Status.NoSuchFile);
+        }
+        return directory;
     }
 
     /// <inheritdoc/>

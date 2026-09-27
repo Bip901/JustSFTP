@@ -1,105 +1,40 @@
 using System;
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Threading;
-using JustSFTP.Protocol;
-using JustSFTP.Protocol.Enums;
-using JustSFTP.Protocol.Models;
 
 namespace JustSFTP.Server;
 
 /// <summary>
 /// A collection of open SFTP handles.
 /// </summary>
-public class SFTPHandleCollection : IDisposable
+public class SFTPHandleCollection<T> : IDisposable
+    where T : IDisposable
 {
-    /// <summary>
-    /// Represents an open SFTP file or directory.
-    /// </summary>
-    /// <param name="Path">The path to the file or directory.</param>
-    public abstract record class OpenSFTPFileOrDirectory(SFTPPath Path) : IDisposable
-    {
-        /// <inheritdoc/>
-        public virtual void Dispose() { }
-    }
-
-    /// <param name="Path">The path to the file or directory.</param>
-    /// <param name="Stream">The open file stream.</param>
-    /// <param name="FileMode"> The mode this was opened with.</param>
-    public record OpenSFTPFile(SFTPPath Path, Stream Stream, FileMode FileMode) : OpenSFTPFileOrDirectory(Path)
-    {
-        /// <summary>
-        /// The semaphore to use when using non-concurrent stream APIs.
-        /// Do not wait for this semaphore when using <see cref="RandomAccess"/> APIs.
-        /// </summary>
-        public SemaphoreSlim StreamSemaphore { get; } = new SemaphoreSlim(1, 1);
-
-        /// <inheritdoc/>
-        public override void Dispose()
-        {
-            Stream.Dispose();
-            StreamSemaphore.Dispose();
-        }
-    }
-
-    public record OpenSFTPDirectory(SFTPPath Path, Func<OpenSFTPDirectory, IEnumerable<SFTPName>> GetChildren)
-        : OpenSFTPFileOrDirectory(Path),
-            IEnumerator<SFTPName>
-    {
-        /// <exception cref="InvalidOperationException"/>
-        public SFTPName Current => inner?.Current ?? throw new InvalidOperationException();
-
-        object IEnumerator.Current => Current;
-        private IEnumerator<SFTPName>? inner;
-
-        /// <inheritdoc/>
-        public void Reset()
-        {
-            inner?.Dispose();
-            inner = null;
-        }
-
-        /// <inheritdoc/>
-        public bool MoveNext()
-        {
-            inner ??= GetChildren(this).GetEnumerator();
-            return inner.MoveNext();
-        }
-
-        /// <inheritdoc/>
-        public override void Dispose()
-        {
-            inner?.Dispose();
-        }
-    }
-
     /// <summary>
     /// Whether this handle collection allows any more open handles.
     /// </summary>
-    public bool IsFull => openFiles.Count >= maxConcurrentHandles;
+    public bool IsFull => openHandles.Count >= maxConcurrentHandles;
 
-    private readonly ConcurrentDictionary<SFTPHandle, OpenSFTPFileOrDirectory> openFiles;
+    private readonly ConcurrentDictionary<SFTPHandle, T> openHandles;
     private readonly int maxConcurrentHandles;
 
     /// <summary>
-    /// Creates a new empty <see cref="SFTPHandleCollection"/>.
+    /// Creates a new empty <see cref="SFTPHandleCollection{T}"/>.
     /// </summary>
     /// <param name="maxConcurrentHandles">The maximum amount of concurrently open handles.</param>
     public SFTPHandleCollection(int maxConcurrentHandles = 16)
     {
         this.maxConcurrentHandles = maxConcurrentHandles;
-        openFiles = new ConcurrentDictionary<SFTPHandle, OpenSFTPFileOrDirectory>(1, maxConcurrentHandles);
+        openHandles = new ConcurrentDictionary<SFTPHandle, T>(1, maxConcurrentHandles);
     }
 
     /// <summary>
-    /// Adds a file or directory to the collection.
+    /// Adds an item to the collection.
     /// </summary>
-    /// <returns>A handle to the given file.</returns>
-    /// <exception cref="InvalidOperationException">If exceeded the maximum allowed amount of concurrently open files.</exception>
-    public byte[] Add(OpenSFTPFileOrDirectory item)
+    /// <returns>A handle to the given item.</returns>
+    /// <exception cref="InvalidOperationException">If exceeded the maximum allowed amount of concurrently open handles.</exception>
+    public byte[] Add(T item)
     {
         if (IsFull)
         {
@@ -107,21 +42,21 @@ public class SFTPHandleCollection : IDisposable
             throw new InvalidOperationException($"Exceeded max concurrent handles ({maxConcurrentHandles})");
         }
         byte[] handle = CreateHandle();
-        openFiles.TryAdd(new SFTPHandle(handle), item); // Should always return true since the key is new
+        openHandles.TryAdd(new SFTPHandle(handle), item); // Should always return true since the key is new
         return handle;
     }
 
     /// <summary>
-    /// Disposes and removes a file from the collection.
+    /// Disposes and removes a handle from the collection.
     /// </summary>
     /// <returns>Whether the handle existed in the collection.</returns>
     public bool Remove(byte[] handle)
     {
-        if (!openFiles.Remove(new SFTPHandle(handle), out OpenSFTPFileOrDirectory? file))
+        if (!openHandles.Remove(new SFTPHandle(handle), out T? fd))
         {
             return false;
         }
-        file.Dispose();
+        fd.Dispose();
         return true;
     }
 
@@ -129,43 +64,9 @@ public class SFTPHandleCollection : IDisposable
     /// Attempts returning the open file identified by the given handle.
     /// </summary>
     /// <returns>Whether the file was found.</returns>
-    public bool TryGet(byte[] handle, [NotNullWhen(true)] out OpenSFTPFileOrDirectory? file)
+    public bool TryGet(byte[] handle, [NotNullWhen(true)] out T? fd)
     {
-        return openFiles.TryGetValue(new SFTPHandle(handle), out file);
-    }
-
-    /// <summary>
-    /// Throws an <see cref="HandlerException"/> with <see cref="Status.NoSuchFile"/> if the given handle does not correspond to an open file.
-    /// </summary>
-    /// <returns>The matching open file.</returns>
-    /// <exception cref="HandlerException"/>
-    public OpenSFTPFile RequireFile(byte[] handle)
-    {
-        if (
-            !openFiles.TryGetValue(new SFTPHandle(handle), out OpenSFTPFileOrDirectory? fileOrDirectory)
-            || fileOrDirectory is not OpenSFTPFile file
-        )
-        {
-            throw new HandlerException(Status.NoSuchFile);
-        }
-        return file;
-    }
-
-    /// <summary>
-    /// Throws an <see cref="HandlerException"/> with <see cref="Status.NoSuchFile"/> if the given handle does not correspond to an open directory.
-    /// </summary>
-    /// <returns>The matching open directory.</returns>
-    /// <exception cref="HandlerException"/>
-    public OpenSFTPDirectory RequireDirectory(byte[] handle)
-    {
-        if (
-            !openFiles.TryGetValue(new SFTPHandle(handle), out OpenSFTPFileOrDirectory? fileOrDirectory)
-            || fileOrDirectory is not OpenSFTPDirectory directory
-        )
-        {
-            throw new HandlerException(Status.NoSuchFile);
-        }
-        return directory;
+        return openHandles.TryGetValue(new SFTPHandle(handle), out fd);
     }
 
     /// <summary>
@@ -180,10 +81,10 @@ public class SFTPHandleCollection : IDisposable
     public void Dispose()
     {
         GC.SuppressFinalize(this);
-        foreach (OpenSFTPFileOrDirectory file in openFiles.Values)
+        foreach (T fd in openHandles.Values)
         {
-            file.Dispose();
+            fd.Dispose();
         }
-        openFiles.Clear();
+        openHandles.Clear();
     }
 }
