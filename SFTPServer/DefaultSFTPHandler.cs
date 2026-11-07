@@ -40,7 +40,12 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     {
         this.root = new SFTPRoot(root.Path);
         ServerExtensions = new SFTPExtensions(
-            new Dictionary<string, string>() { { Extensions.POSIX_RENAME, "1" }, { Extensions.OPEN_DIR_EAGER, "1" } }
+            new Dictionary<string, string>()
+            {
+                { Extensions.POSIX_RENAME, "1" },
+                { Extensions.OPEN_DIR_EAGER, "1" },
+                { Extensions.STATVFS, "1" },
+            }
         );
     }
 
@@ -370,7 +375,7 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
     }
 
     /// <inheritdoc/>
-    public virtual async Task<SFTPResponse> Extended(
+    public virtual Task<SFTPResponse> Extended(
         uint requestId,
         string requestName,
         SshStreamReader reader,
@@ -381,45 +386,104 @@ public class DefaultSFTPHandler : ISFTPHandler, IDisposable
         {
             case SFTPPosixRenameRequest.REQUEST_NAME:
             {
-                SFTPPosixRenameRequest request = await SFTPPosixRenameRequest
-                    .DeserializeAsync(requestId, reader, cancellationToken)
-                    .ConfigureAwait(false);
-                Rename(new SFTPPath(request.OldPath), new SFTPPath(request.NewPath), allowOverwrite: true);
-                return new SFTPStatus(requestId, Status.Ok);
+                return PosixRename(requestId, reader, cancellationToken);
             }
             case SFTPOpenDirEagerRequest.REQUEST_NAME:
             {
-                SFTPOpenDirEagerRequest request = await SFTPOpenDirEagerRequest
-                    .DeserializeAsync(requestId, reader, cancellationToken)
-                    .ConfigureAwait(false);
-                byte[] handle = await OpenDir(new SFTPPath(request.Path), cancellationToken).ConfigureAwait(false);
-                try
-                {
-                    IEnumerator<SFTPName> enumerator = await ReadDir(handle, cancellationToken).ConfigureAwait(false);
-                    List<SFTPName> results = [];
-                    for (int i = 0; i < SFTPServer.READ_DIR_PAGE_SIZE && enumerator.MoveNext(); i++)
-                    {
-                        results.Add(enumerator.Current);
-                    }
-                    if (results.Count < SFTPServer.READ_DIR_PAGE_SIZE)
-                    {
-                        await Close(handle, cancellationToken).ConfigureAwait(false);
-                        handle = [];
-                    }
-                    return new SFTPOpenDirEagerResponse(requestId, handle, results);
-                }
-                catch
-                {
-                    if (handle.Length > 0)
-                    {
-                        await Close(handle, cancellationToken).ConfigureAwait(false);
-                    }
-                    throw;
-                }
+                return OpenDirEager(requestId, reader, cancellationToken);
+            }
+            case SFTPStatVFSRequest.REQUEST_NAME:
+            {
+                return StatVFS(requestId, reader, cancellationToken);
             }
             default:
                 throw new HandlerException(Status.OperationUnsupported);
         }
+    }
+
+    private async Task<SFTPResponse> PosixRename(
+        uint requestId,
+        SshStreamReader reader,
+        CancellationToken cancellationToken
+    )
+    {
+        SFTPPosixRenameRequest request = await SFTPPosixRenameRequest
+            .DeserializeAsync(requestId, reader, cancellationToken)
+            .ConfigureAwait(false);
+        Rename(new SFTPPath(request.OldPath), new SFTPPath(request.NewPath), allowOverwrite: true);
+        return new SFTPStatus(requestId, Status.Ok);
+    }
+
+    private async Task<SFTPResponse> OpenDirEager(
+        uint requestId,
+        SshStreamReader reader,
+        CancellationToken cancellationToken
+    )
+    {
+        SFTPOpenDirEagerRequest request = await SFTPOpenDirEagerRequest
+            .DeserializeAsync(requestId, reader, cancellationToken)
+            .ConfigureAwait(false);
+        byte[] handle = await OpenDir(new SFTPPath(request.Path), cancellationToken).ConfigureAwait(false);
+        try
+        {
+            IEnumerator<SFTPName> enumerator = await ReadDir(handle, cancellationToken).ConfigureAwait(false);
+            List<SFTPName> results = [];
+            for (int i = 0; i < SFTPServer.READ_DIR_PAGE_SIZE && enumerator.MoveNext(); i++)
+            {
+                results.Add(enumerator.Current);
+            }
+            if (results.Count < SFTPServer.READ_DIR_PAGE_SIZE)
+            {
+                await Close(handle, cancellationToken).ConfigureAwait(false);
+                handle = [];
+            }
+            return new SFTPOpenDirEagerResponse(requestId, handle, results);
+        }
+        catch
+        {
+            if (handle.Length > 0)
+            {
+                await Close(handle, cancellationToken).ConfigureAwait(false);
+            }
+            throw;
+        }
+    }
+
+    private async Task<SFTPResponse> StatVFS(
+        uint requestId,
+        SshStreamReader reader,
+        CancellationToken cancellationToken
+    )
+    {
+        SFTPStatVFSRequest request = await SFTPStatVFSRequest
+            .DeserializeAsync(requestId, reader, cancellationToken)
+            .ConfigureAwait(false);
+        if (!TryGetFSObject(new SFTPPath(request.Path), out FileSystemInfo? fsObject))
+        {
+            throw new HandlerException(Status.NoSuchFile);
+        }
+        string? pathRoot =
+            Path.GetPathRoot(fsObject.FullName)
+            ?? throw new HandlerException(Status.Failure, "Failed finding path root");
+        DriveInfo driveInfo = new(pathRoot);
+        const ulong blockSize = 1; // Lies
+        ulong totalSize = (ulong)driveInfo.TotalSize;
+        ulong totalFree = (ulong)driveInfo.TotalFreeSpace;
+        ulong availFree = (ulong)driveInfo.AvailableFreeSpace;
+        return new SFTPStatVFS(
+            RequestId: requestId,
+            BlockSize: blockSize,
+            FragmentSize: blockSize,
+            Blocks: totalSize / blockSize,
+            FreeBlocks: totalFree / blockSize,
+            AvailableBlocks: availFree / blockSize,
+            Files: 0,
+            FreeINodes: 0,
+            AvailableINodes: 0,
+            FileSystemId: 0,
+            Flags: SFTPStatVFS.MountFlags.None,
+            MaxFilenameLength: 255
+        );
     }
 
     /// <exception cref="HandlerException"/>

@@ -11,6 +11,7 @@ using JustSFTP.Protocol.Enums;
 using JustSFTP.Protocol.Models;
 using JustSFTP.Protocol.Models.Requests.Extended;
 using JustSFTP.Protocol.Models.Responses;
+using JustSFTP.Protocol.Models.Responses.Extended;
 using JustSFTP.Server;
 
 namespace JustSFTP.Tests;
@@ -122,6 +123,11 @@ public class TestEndToEnd
                 )
             ).Status
         );
+        SFTPStatVFS statVFSResponse = await client.ExtendedRequestAsync<SFTPStatVFS>(
+            requestId => new SFTPStatVFSRequest(requestId, "/"),
+            SFTPStatVFS.ReadAsync
+        );
+        Assert.True(statVFSResponse.FragmentSize > 0);
 
         clientCancel.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(() => clientTask);
